@@ -1,12 +1,31 @@
 ### Flame
-Flame is programming language
+Flame is programming language that transpiles into C++
 
 
 
-#### Changelog
-0.7.0:
-  > vectors, 
+#### Pros of using Flame:
 
-  > arrays as arguments for functions
+1. Modern syntax:
+   ```
+   i32 x = 42;
+   func inc(ref i32 var) void {
+     var++;
+   }
+   ```
 
-  > structures
+2. Memory safety:
+   - no use-after-free
+   - no double free
+   - no nullptr
+  
+3. Good comptime diagnostic:
+
+### Cons of using Flame:
+
+1. Slow full compile time(transpilation + g++ compiling)
+2. Weak comptime features compered to Zig:
+   ```
+   comptime i32 x = 10;
+   comptime i32 y = 32+x;
+   ```
+3. Small standard library
