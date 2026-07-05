@@ -9,7 +9,7 @@ std::vector<std::string> freed_list;
 std::vector<std::string> notfreed_list;
 std::vector<std::unordered_map<std::string, symbol>> table;
 std::unordered_map<std::string, fsymbol> ftable;
-
+std::vector<std::string> loadedModules;
 
 token_value search_value(const std::string &name) {
     for(auto &scope : std::ranges::reverse_view(table)) {
@@ -20,6 +20,7 @@ token_value search_value(const std::string &name) {
     return nothing{};
 }
 
+[[nodiscard]]
 symbol search(const std::string &name) {
     for(auto &scope : std::ranges::reverse_view(table)) {
         if(scope.contains(name)) {
@@ -28,6 +29,8 @@ symbol search(const std::string &name) {
     }
     return symbol{};
 }
+
+
 
 symbol* searchptr(const std::string &name) {
     for(auto &scope : std::ranges::reverse_view(table)) {
@@ -40,7 +43,7 @@ symbol* searchptr(const std::string &name) {
 
 token_type search_type(const std::string &name) {
     for(auto &scope : std::ranges::reverse_view(table)) {
-        if(scope.contains(name)) {
+        if(scope.contains(name)) [[likely]] {
             return scope.at(name).type;
         }
     }
@@ -52,12 +55,12 @@ token_type search_type_scope(const std::string &name, unsigned int lvl) {
     return EOF_;
 }
 
-void insert(const std::string &name,token_type type, token_value val, bool is_const, u64 size, bool is_array, bool comptime, bool is_vector, bool isptr) {
-    if(table.empty()) return;
-    table[table.size()-1].insert_or_assign(name, symbol{type, std::move(val), is_const, size, is_array, comptime,"", is_vector, isptr});
+void insert(const std::string &name,token_type type, token_value val, bool is_const, u64 size, bool is_array, bool comptime, bool is_vector, bool isptr, const std::string &modname) {
+    if(table.empty()) [[unlikely]] return;
+    table[table.size()-1].insert_or_assign(name, symbol{type, std::move(val), is_const, size, is_array, comptime,"", is_vector, isptr, modname});
 }
 
-void insert_top(const std::string &name,token_type type,token_value val, bool is_const, u64 size,bool is_array, bool comptime, bool is_vector, bool isptr) {
+void insert_top(const std::string &name,token_type type,token_value val, bool is_const, u64 size,bool is_array, bool comptime, bool is_vector, bool isptr, const std::string modname) {
     if(table.empty()) return;
     table[0].insert_or_assign(name, symbol{type, std::move(val), is_const, size, is_array, comptime,"", is_vector, isptr});
 }
@@ -72,4 +75,18 @@ bool exist_in_scope(const std::string &name, unsigned int lvl) {
     return true;
 }
 
+bool exist_module(const std::string &name, const std::string &modname) {
+    symbol v = search(name);
+    if(v.type==EOF_||v.module_name!=modname) return false;
+    return true;
+}
 
+[[nodiscard]]
+symbol search_module(const std::string &name, const std::string &modname) {
+    for(auto &scope : std::ranges::reverse_view(table)) {
+        if(scope.contains(name)&&scope.at(name).module_name==modname) {
+            return scope.at(name);
+        }
+    }
+    return symbol{};
+}

@@ -96,7 +96,7 @@ std::string BinaryNode::gen(generator &g)
 std::string AssignmentNode::gen(generator &g)
 {
     std::string value = val ? g.gencode(val) : "";
-    return " " + id + (value.empty() ? "" : "=" + value);
+    return id + (value.empty() ? "" : "=" + value);
 }
 
 std::string AssignmentNodeExpr::gen(generator &g)
@@ -163,7 +163,10 @@ std::string FuncCallNode::gen(generator &g)
             args_ += g.gencode(x);
             args_ += " << ";
         }
-        args_ += "std::endl";
+        args_.pop_back();
+        args_.pop_back();
+        args_.pop_back();
+        args_.pop_back();
         return args_;
     }
     if (id == "input")
@@ -463,7 +466,9 @@ std::string ModuleNode::gen(generator &g)
     std::ostringstream code;
     generator gen;
     code << gen.generate(module);
+    g.header += "namespace " + mname + " {\n";
     g.header += code.str();
+    g.header += "}";
     return "";
 }
 

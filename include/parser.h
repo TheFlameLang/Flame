@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include "lexer.h"
 #include "ast.h"
@@ -32,13 +32,14 @@ class parser {
     bool factor_decl_mode = false;
     std::string filename;
     bool errors=false;
+    bool is_module=false;
     explicit parser(const std::vector<token> &a, const std::string &f) {
         src = a;
         indx = 0;
         filename = f;
     }
     bool returning=false;
-    
+
     astptr parse_expr();
     astptr parse_shift();
     astptr parse_unary();
@@ -64,6 +65,7 @@ class parser {
     astptr parse_vector(bool is_const=false, const std::string &struct_="");
     void parse_comptime();
     astptr parse_method();
+    astptr parse_module_call(const std::string &name="");
     astptr parse_struct();
     astptr parse_assignment(bool is_const=false, bool comptime=false, const std::string &struct_="");
     token consume() {

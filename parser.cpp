@@ -364,7 +364,11 @@ astptr parser::parse_use()
 {
     token m = consume(USE);
     const std::string mname = consume(ID).str_value;
-    std::string name = mname + "." + "flame";
+    std::string name = mname + ".flame";
+    for(auto &x : loadedModules) {
+        if(x==mname) return {};
+    }
+    loadedModules.emplace_back(name);
     consume(SEMI);
     std::ifstream file(name);
     std::ostringstream oss;
@@ -378,6 +382,7 @@ astptr parser::parse_use()
         lexer l;
         std::vector<token> toks = l.lex(code);
         parser p(toks, name);
+        p.is_module = true;
         std::vector<astptr> module;
         try
         {
@@ -412,6 +417,7 @@ astptr parser::parse_use()
     lexer l;
     std::vector<token> toks = l.lex(code);
     parser p(toks, name);
+    p.is_module = true; // tells later to table that we parsing module
     std::vector<astptr> module;
     insert("print", FUNC, nothing{}, true);
     insert("input", FUNC, nothing{}, true);
@@ -421,7 +427,7 @@ astptr parser::parse_use()
     {
         try
         {
-            module.push_back(parse_statement());
+            module.push_back(p.parse_statement());
         }
         catch (ParseTimeError &e)
         {
@@ -633,7 +639,8 @@ astptr parser::parse_func_statement(const std::string &struct_)
         throw ParseTimeError("\tFunction " + id.str_value + " doesnt have returning\n");
     }
     table.pop_back();
-    insert(struct_ + id.str_value, FUNC, nothing{});
+    if(is_module) insert(struct_ + id.str_value, FUNC, nothing{}, false,1, false, false, false, false, filename);
+    else insert(struct_ + id.str_value, FUNC, nothing{});
     return std::make_unique<FuncNode>(id, return_type, std::move(args_), std::move(block), is_array, size);
 }
 
@@ -743,7 +750,8 @@ astptr parser::parse_array(bool is_const, const std::string &struct_)
     if (peek().type == SEMI)
     {
         consume(SEMI);
-        insert(struct_ + id, type.type, true, is_const, std::get<u64>(size.value), true);
+        if(is_module) insert(struct_ + id, type.type, true, is_const, std::get<u64>(size.value), true, false, false, false, filename);
+        else  insert(struct_ + id, type.type, true, is_const, std::get<u64>(size.value), true);
         return std::make_unique<ArrayNode>(type,
                                            std::vector<astptr>{},
                                            id,
@@ -769,7 +777,8 @@ astptr parser::parse_array(bool is_const, const std::string &struct_)
         consume(SEMI);
         std::vector<astptr> values;
         values.emplace_back(std::move(value));
-        insert(struct_ + id, type.type, nothing{}, is_const, std::get<u64>(size.value), true);
+        if(is_module) insert(struct_ + id, type.type, nothing{}, is_const, std::get<u64>(size.value), true, false, false, false, filename);
+        else insert(struct_ + id, type.type, nothing{}, is_const, std::get<u64>(size.value), true);
         return std::make_unique<ArrayNode>(type,
                                            std::move(values),
                                            id,
@@ -789,7 +798,8 @@ astptr parser::parse_array(bool is_const, const std::string &struct_)
     }
     consume(R_SQ_BRACKET);
     consume(SEMI);
-    insert(struct_ + id, type.type, nothing{}, is_const, els, true);
+    if(is_module) insert(struct_ + id, type.type, nothing{}, is_const, els, true, false, false, false, filename);
+    else insert(struct_ + id, type.type, nothing{}, is_const, els, true);
     if (size_defined)
         return std::make_unique<ArrayNode>(type, std::move(values), id, variant2int<unsigned long long>(size.value));
     else
@@ -861,7 +871,8 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         }
         token id = consume(ID);
         consume(SEMI);
-        insert(id.str_value, STRUCT, struct_id.str_value, false, 1, false, false, false, isptr);
+        if(is_module) insert(id.str_value, STRUCT, struct_id.str_value, false, 1, false, false, false, isptr, filename);
+        else insert(id.str_value, STRUCT, struct_id.str_value, false, 1, false, false, false, isptr);
         return std::make_unique<AssignmentNodeExpr>(STRUCT, id.str_value, astptr{}, is_const, struct_id.str_value, isptr);
     }
     if (peek().type == VEC)
@@ -979,14 +990,16 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         }
         if(peek().type==SEMI) {
             consume(SEMI);
-            insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true);
-            return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, astptr{}, is_const, "", true);        
+            if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true, filename);
+            else insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true);
+            return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, astptr{}, is_const, "", true);
         }
         consume(EQ);
         astptr value = parse_factor();
         consume(SEMI);
-        insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true);
-        return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, std::move(value), is_const, "", true);        
+        if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true, filename);
+        else insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true);
+        return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, std::move(value), is_const, "", true);
     }
     token id = consume(token_type::ID);
     std::string id_value = id.str_value;
@@ -1021,14 +1034,23 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
     }
     consume(token_type::EQ);
     astptr value = parse_or();
-    insert(struct_ + id.str_value, type.type, nothing{}, is_const, false, comptime);
+    if(is_module&&!comptime) insert(struct_ + id.str_value, type.type, nothing{}, is_const, false, false, false, false, false, filename);
+    else insert(struct_ + id.str_value, type.type, nothing{}, is_const, false, comptime);
     consume(SEMI);
     return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, std::move(value), is_const);
 }
 
+
+
 astptr parser::parse_method()
 {
     token parent = consume(ID);
+
+    for(auto &x : loadedModules) {
+        if(x==parent.str_value+".flame") {
+            return parse_module_call(parent.str_value);
+        }
+    }
 
     if (!exist(parent.str_value))
     {
@@ -1038,9 +1060,9 @@ astptr parser::parse_method()
     }
     symbol var = search(parent.str_value);
     bool isptr = false;
-    if(var.is_ptr) isptr = true; 
+    if(var.is_ptr) isptr = true;
     std::vector<astptr> children;
-    std::vector<bool> isptrs;    
+    std::vector<bool> isptrs;
 
     while (peek().type == DOT)
     {
@@ -1122,15 +1144,23 @@ astptr parser::parse_method()
             }
             else
             {
-                u64 i = indx;
-                try
-                {
-                    children.emplace_back(parse_assignment(false, false, parent.str_value + '.'));
+                
+                if(peek().type==EQ) {
+                    // reasingning -> p.x = 32;
+                    if(search(child.str_value).is_const) {
+                        parser::line = child.line;
+                        parser::column = child.column;
+                        throw ParseTimeError("\tVariable '" + child.str_value +
+                                             "' is constant\n");
+                    }
+                    consume(EQ);
+                    astptr value = parse_or();
+                    consume(SEMI);
+                    children.emplace_back(std::make_unique<AssignmentNode>(child.str_value, std::move(value)));
                 }
-                catch (ParseTimeError &e)
+                else
                 {
-                    indx = i;
-                    children.emplace_back(std::make_unique<Node>(child));
+                    children.emplace_back(std::make_unique<Node>(child)); // access -> p.x
                 }
             }
             if (peek().type == SEMI)
@@ -1142,6 +1172,109 @@ astptr parser::parse_method()
     if (peek().type == SEMI)
         consume(SEMI);
     return std::make_unique<MethodNode>(std::move(children), isptrs, parent.str_value, search_type(parent.str_value), isptr);
+}
+
+astptr parser::parse_module_call(const std::string &name) {
+    consume(DOT);
+    std::vector<astptr> children;
+    std::vector<bool> isptrs;
+
+    while (peek().type == DOT)
+    {
+        consume(DOT);
+        token child = consume(ID);
+        if (!exist_module(child.str_value, name) && !exist_module(child.str_value, name))
+        {
+            parser::line = child.line;
+            parser::column = child.column;
+            throw ParseTimeError("\tUse undeclared variable '" + child.str_value + "'\n");
+        }
+        isptrs.push_back(search_module(child.str_value, name).is_ptr);
+        if (peek().type == L_BRACKET)
+        {
+            consume(L_BRACKET);
+            std::vector<astptr> args_;
+            u64 arg_i = 0;
+            fsymbol *f = fsearch_module(child.str_value, name);
+            while (peek().type != R_BRACKET)
+            {
+                token c = peek();
+                token n = peek(1);
+                if ((c.type == ID && (n.type == COMA || n.type == R_BRACKET) && f))
+                {
+                    if (arg_i >= f->args.size())
+                    {
+                        parser::line = c.line;
+                        parser::column = c.column;
+                        throw ParseTimeError("\tExpected " + std::to_string(f->args.size()) + " arguments, got " +
+                                             std::to_string(arg_i) + "\n");
+                    }
+                    if (search_module(c.str_value, name).type != f->args[arg_i].type && f->type != FUNC)
+                    {
+                        parser::line = c.line;
+                        parser::column = c.column;
+                        throw ParseTimeError("\tExpected argument of type '" +
+                                             disassemble_tok_type(f->args[arg_i].type) + "', but got '" +
+                                             disassemble_tok_type(search_type(c.str_value)) + "'\n");
+                    }
+                    if (search_module(c.str_value, name).is_array && search_module(c.str_value, name).size != f->args[arg_i].size)
+                    {
+                        parser::line = c.line;
+                        parser::column = c.column;
+                        throw ParseTimeError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
+                                             "'\n");
+                    }
+                }
+                arg_i++;
+                args_.push_back(parse_or());
+                if (peek().type == COMA)
+                    consume();
+            }
+            consume(R_BRACKET);
+            children.emplace_back(std::make_unique<FuncCallNode>(name+"::"+child.str_value, std::move(args_), ""));
+            if (peek().type == SEMI)
+                consume(SEMI);
+        }
+        else
+        {
+            if (peek().type == L_SQ_BRACKET)
+            {
+                consume(L_SQ_BRACKET);
+                astptr index = parse_expr();
+                consume(R_SQ_BRACKET);
+                bool is_vec = search_module(child.str_value, name).is_vector;
+                child.str_value = name+"::"+child.str_value;
+                children.emplace_back(std::make_unique<ArrayAccessNode>(child, std::move(index), is_vec));
+            }
+            else
+            {
+                
+                if(peek().type==EQ) {
+                    // reasingning -> p.x = 32;
+                    if(search(child.str_value).is_const) {
+                        parser::line = child.line;
+                        parser::column = child.column;
+                        throw ParseTimeError("\tVariable '" + child.str_value +
+                                             "' is constant\n");
+                    }
+                    consume(EQ);
+                    astptr value = parse_or();
+                    consume(SEMI);
+                    children.emplace_back(std::make_unique<AssignmentNode>(name+"::"+child.str_value, std::move(value)));
+                }
+                else
+                {   
+                    child.str_value = name+"::"+child.str_value;
+                    children.emplace_back(std::make_unique<Node>(child)); // access -> p.x
+                }
+            }
+            if (peek().type == SEMI)
+                consume(SEMI);
+        }
+    }
+    if (peek().type == SEMI)
+        consume(SEMI);
+    //return std::make_unique<MethodNode>(std::move(children), isptrs, name, search_type(), isptr);
 }
 
 astptr parser::parse_vector(bool is_const, const std::string &struct_)
@@ -1164,7 +1297,8 @@ astptr parser::parse_vector(bool is_const, const std::string &struct_)
     if (peek().type == SEMI)
     {
         consume(SEMI);
-        insert(struct_ + id.str_value, type.type, true, is_const, 0, true, false, true);
+        if(is_module) insert(struct_ + id.str_value, type.type, true, is_const, 0, true, false, true, false, filename);
+        else insert(struct_ + id.str_value, type.type, true, is_const, 0, true, false, true);
         return std::make_unique<ArrayNode>(type, std::vector<astptr>{}, id.str_value, 0, false, true);
     }
     consume(EQ);
@@ -1176,7 +1310,8 @@ astptr parser::parse_vector(bool is_const, const std::string &struct_)
         symbol var = search(peek().str_value);
         u64 size = var.type != FUNC ? var.size : 0;
         values.emplace_back(std::move(value));
-        insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, true, false, true);
+        if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, true, false, true, false, filename);
+        else insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, true, false, true);
         return std::make_unique<ArrayNode>(type, std::move(values), id.str_value, 0, true, true);
     }
     consume(L_SQ_BRACKET);
@@ -1192,7 +1327,8 @@ astptr parser::parse_vector(bool is_const, const std::string &struct_)
     }
     consume(R_SQ_BRACKET);
     consume(SEMI);
-    insert(struct_ + id.str_value, type.type, nothing{}, is_const, els, true, false, true);
+    if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, els, true, false, true, false, filename);
+    else insert(struct_ + id.str_value, type.type, nothing{}, is_const, els, true, false, true);
     return std::make_unique<ArrayNode>(type, std::move(values), id.str_value, els, false, true);
 }
 
@@ -1204,10 +1340,13 @@ astptr parser::parse_struct()
     std::vector<astptr> block;
     while (peek().type != R_BRACES)
     {
-        if (peek().type != FUNC)
-            block.push_back(parse_assignment());
-        else
+        if (peek().type != FUNC) {
+            bool is_const = peek().type == CONST ? true : false;
+            block.push_back(parse_assignment(is_const));
+        }
+        else {
             block.push_back(parse_func_statement(id.str_value));
+        }
     }
     consume(R_BRACES);
     consume(SEMI);

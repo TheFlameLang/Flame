@@ -190,7 +190,7 @@ inline std::string variant2value(token tok) {
   if (tok.type == DOUBLE)
     return std::to_string(variant2double(tok.value));
   if (tok.type == STRING)
-    return '\"' + variant2string(tok.value) + '\"';
+    return "\"" + variant2string(tok.value) + "\"";
   if (tok.type == TRUE || tok.type == FALSE)
     return std::to_string(variant2bool(tok.value));
   if (tok.type == NULL_)

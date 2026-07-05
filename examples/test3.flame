@@ -1,0 +1,25 @@
+use stdlib;
+func printw(string s) void {
+	print(s);
+}
+
+struct point {
+	i32 x=0;
+	i32 y=0;
+	func inc() void {
+		x++;
+	}
+};
+
+func main() i32 {
+	printw("hi");
+	point p;
+	p.x = 3;
+	//i32 z = 3;
+	//z = 2;
+	//p.inc();
+	i32 x = -2;
+	x = stdlib.abs(x);
+	print(x);
+	return 0;
+}
