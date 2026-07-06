@@ -18,8 +18,8 @@ func main() i32 {
 	//i32 z = 3;
 	//z = 2;
 	//p.inc();
-	i32 x = -2;
-	x = stdlib.abs(x);
+	f32 x = -2;
+	x = stdlib.PI;
 	print(x);
 	return 0;
 }

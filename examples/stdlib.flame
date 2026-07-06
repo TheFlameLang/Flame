@@ -7,6 +7,8 @@ func abs(i64 a) i64 {
     return -a;
 }
 
+const f64 PI = 3.14;
+
 func sqrt(f64 a) f64 {
     f64 x = 1.0;
     for(i32 i=0;i<=6;i++) {

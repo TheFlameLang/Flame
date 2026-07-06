@@ -9,13 +9,14 @@ std::string Node::gen(generator &g)
 {
     (void)g;
     if(tok.type==ID) {
-        symbol var = search(variant2string(tok.value));
+        symbol var = search(tok.str_value);
         if(var.comptime&&(var.type<=LONG_TYPE||var.type==BOOL_TYPE)) return std::to_string(variant2int<long long>(var.value));
         if(var.comptime&&(var.type<=UNSIGNED_64_TYPE&&var.type>LONG_TYPE)) return std::to_string(variant2int<unsigned long long>(var.value));
         if(var.comptime&&var.type==STRING_TYPE) return variant2string(var.value);
         if(var.comptime&&(var.type==FLOAT_TYPE)) return std::to_string(variant2float(var.value));
         if(var.comptime&&(var.type==DOUBLE_TYPE)) return std::to_string(variant2double(var.value));
         if(isptr) return "*" + tok.str_value;
+        else return tok.str_value;
     }
     return variant2value(tok);
 }
@@ -468,7 +469,7 @@ std::string ModuleNode::gen(generator &g)
     code << gen.generate(module);
     g.header += "namespace " + mname + " {\n";
     g.header += code.str();
-    g.header += "}";
+    g.header += "}\n";
     return "";
 }
 
@@ -493,6 +494,18 @@ std::string MethodNode::gen(generator &g) {
                 }
             }
         }
+        code += accessor + g.gencode(x);
+        accessor = (i < isptrs.size() && isptrs[i]) ? "->" : ".";
+        i++;
+    }
+    return code;
+}
+
+std::string ModuleCallNode::gen(generator &g) {
+    std::string code = "";
+    unsigned long i = 0;
+    std::string accessor = "";
+    for(auto &x : children) {
         code += accessor + g.gencode(x);
         accessor = (i < isptrs.size() && isptrs[i]) ? "->" : ".";
         i++;

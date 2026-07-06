@@ -1048,7 +1048,7 @@ astptr parser::parse_method()
 
     for(auto &x : loadedModules) {
         if(x==parent.str_value+".flame") {
-            return parse_module_call(parent.str_value);
+            return parse_module_call(parent.str_value+".flame");
         }
     }
 
@@ -1163,8 +1163,6 @@ astptr parser::parse_method()
                     children.emplace_back(std::make_unique<Node>(child)); // access -> p.x
                 }
             }
-            if (peek().type == SEMI)
-                consume(SEMI);
         }
     }
     if (var.is_vector)
@@ -1175,19 +1173,21 @@ astptr parser::parse_method()
 }
 
 astptr parser::parse_module_call(const std::string &name) {
-    consume(DOT);
     std::vector<astptr> children;
     std::vector<bool> isptrs;
+
+    size_t s = name.find_last_of(".");
+    std::string cname = (s == std::string::npos) ? name : name.substr(0, s);
 
     while (peek().type == DOT)
     {
         consume(DOT);
         token child = consume(ID);
-        if (!exist_module(child.str_value, name) && !exist_module(child.str_value, name))
+        if (!exist_module(child.str_value, name))
         {
             parser::line = child.line;
             parser::column = child.column;
-            throw ParseTimeError("\tUse undeclared variable '" + child.str_value + "'\n");
+            throw ParseTimeError("\tUse undeclared variable '" + child.str_value + "' in module " + name + "\n");
         }
         isptrs.push_back(search_module(child.str_value, name).is_ptr);
         if (peek().type == L_BRACKET)
@@ -1231,9 +1231,7 @@ astptr parser::parse_module_call(const std::string &name) {
                     consume();
             }
             consume(R_BRACKET);
-            children.emplace_back(std::make_unique<FuncCallNode>(name+"::"+child.str_value, std::move(args_), ""));
-            if (peek().type == SEMI)
-                consume(SEMI);
+            children.emplace_back(std::make_unique<FuncCallNode>(cname+"::"+child.str_value, std::move(args_), ""));
         }
         else
         {
@@ -1243,7 +1241,7 @@ astptr parser::parse_module_call(const std::string &name) {
                 astptr index = parse_expr();
                 consume(R_SQ_BRACKET);
                 bool is_vec = search_module(child.str_value, name).is_vector;
-                child.str_value = name+"::"+child.str_value;
+                child.str_value = cname+"::"+child.str_value;
                 children.emplace_back(std::make_unique<ArrayAccessNode>(child, std::move(index), is_vec));
             }
             else
@@ -1259,22 +1257,17 @@ astptr parser::parse_module_call(const std::string &name) {
                     }
                     consume(EQ);
                     astptr value = parse_or();
-                    consume(SEMI);
-                    children.emplace_back(std::make_unique<AssignmentNode>(name+"::"+child.str_value, std::move(value)));
+                    children.emplace_back(std::make_unique<AssignmentNode>(cname+"::"+child.str_value, std::move(value)));
                 }
                 else
                 {   
-                    child.str_value = name+"::"+child.str_value;
+                    child.str_value = cname+"::"+child.str_value;
                     children.emplace_back(std::make_unique<Node>(child)); // access -> p.x
                 }
             }
-            if (peek().type == SEMI)
-                consume(SEMI);
         }
     }
-    if (peek().type == SEMI)
-        consume(SEMI);
-    //return std::make_unique<MethodNode>(std::move(children), isptrs, name, search_type(), isptr);
+    return std::make_unique<ModuleCallNode>(std::move(children), isptrs, name);
 }
 
 astptr parser::parse_vector(bool is_const, const std::string &struct_)

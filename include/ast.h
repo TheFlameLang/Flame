@@ -349,6 +349,18 @@ class MethodNode : public ASTNode {
   std::string gen(generator &g) override;
 };
 
+class ModuleCallNode : public ASTNode {
+  public:
+  std::vector<astptr> children;
+  std::vector<bool> isptrs;
+  std::string parent;
+  ModuleCallNode(std::vector<astptr> m, const std::vector<bool> &ptrs, const std::string &name) : children(std::move(m)), isptrs(ptrs), parent(name) { //kind = ast_type::MODULE;
+     }
+
+  void print() const override {}
+  std::string gen(generator &g) override;
+};
+
 class StructNode : public ASTNode {
   public:
   std::string id;
