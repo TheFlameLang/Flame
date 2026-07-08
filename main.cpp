@@ -39,11 +39,11 @@ int main(int argc, char *argv[]) {
       out_name = argc > i + 1 ? argv[i + 1] : "out";
     if (strcmp(argv[i], "-lexer-debug") == 0)
       lexer_output = true;
-    if (strcmp(argv[i], "-O3") == 0)
+    if (strcmp(argv[i], "-O2") == 0)
       fast_code = true;
     if (strcmp(argv[i], "-O0") == 0)
       slow_code = true;
-    if (strcmp(argv[i], "-Oe") == 0)
+    if (strcmp(argv[i], "-O3") == 0)
       super_fast_code = true;
   }
   lexer lex;
@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
     std::string output;
     if(slow_code) output = "g++ -O0 temp_flame.cpp -o " + out_name;
     else if(super_fast_code) output = "g++ -O3 -funroll-loops -march=native temp_flame.cpp -o " + out_name;
-    else output = !fast_code ? "g++ temp_flame.cpp -o " + out_name : "g++ -O3 temp_flame.cpp -o " + out_name;
+    else output = !fast_code ? "g++ temp_flame.cpp -o " + out_name : "g++ -O2 temp_flame.cpp -o " + out_name;
     system(output.c_str());
   }
   // std::cout << code_ << std::endl;

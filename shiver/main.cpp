@@ -91,14 +91,22 @@ int main(int argc, char* argv[]) {
             });
         }
 
-		std::string files = "";
+		std::vector<std::string> files;
         for(auto &x : src) {
-            if(!std::filesystem::exists(x)) {
-                std::cerr << termcolor::red << "Error \n" << termcolor::reset <<
-                "\n> Cannot find '" << x << "' in current directory. Check if path is correct.\n";
-                return 1;
+            for(auto &y : std::filesystem::recursive_directory_iterator(x)) {
+                if(y.path().extension() == ".flame") {
+                    const std::string n = y.path().stem();
+                    files.emplace_back(n);
+                    files.emplace_back(n);
+                    std::string cmd_ = "flame -C"; cmd_ += y.path().filename(); cmd_ += "-o " + n;
+                    std::system(cmd_.c_str());
+                }
             }
-            files += " " + x;
+        }
+        if(files.empty()) {
+            std::cerr << termcolor::red << "Error: " << termcolor::reset <<
+            "No files to build detected, stopping now.\n";
+            return 1;
         }
         if(name=="") {
             std::cerr << termcolor::yellow << "Warning \n" << termcolor::reset <<
@@ -112,15 +120,18 @@ int main(int argc, char* argv[]) {
         std::string cxx = t["cxx"].value_or("g++");
         std::string cxxflags = t["cxxflags"].value_or("-g -O1");
         std::string ld = t["ld"].value_or("ld");
+        std::string output = t["output"].value_or("test");
 
-		std::string cmd_="flame -C";
-        for(auto &x : src) {
-        	cmd_ += x;
+  		std::filesystem::create_directory("./build");
+        std::string final = "";
+        for(auto &x : files) {
+            final += x + ".o";
+            const std::string cmd = cxx + ' ' + cxxflags + ' ' + x + ".cpp -o ./build/" + x + ".o";
+
+            std::system(cmd.c_str());
         }
-        std::system(cmd_.c_str());
-
-  		std::string cmd = cxx + " " + cxxflags + " " + files;
-  		std::cout << cmd << '\n';
+        std::string cmd__ = ld + final + output;
+        std::system(cmd__.c_str());
     }
     return 0;
 }

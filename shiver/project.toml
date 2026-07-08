@@ -1,0 +1,12 @@
+name = "test"
+version = "1.0"
+
+output = "test"
+license = "MIT"
+author = "me"
+github = "none"
+[build]
+cxx = "g++"
+cxxflags = "-O1"
+ld = "ld"
+src = ["testdir"]
