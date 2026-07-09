@@ -1,5 +1,4 @@
 use stdlib;
-use string;
 
 func main() i32 {
 	print("hii\n");

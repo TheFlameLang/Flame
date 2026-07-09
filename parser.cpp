@@ -1344,8 +1344,6 @@ astptr parser::parse_statement()
     token tok = peek();
     if (tok.type == ID && peek(1).type == DOT)
         return parse_method();
-    if (tok.type == ID && peek(1).type == L_BRACKET)
-        return parse_factor();
     switch (tok.type)
     {
     case token_type::IF:
