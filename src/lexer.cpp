@@ -1,5 +1,5 @@
-#include "include/lexer.h"
-#include "include/common.h"
+#include "../include/lexer.h"
+#include "../include/common.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -305,7 +305,7 @@ std::vector<token> lexer::lex(std::string src) {
         exit(1);
       }
       i++;
-      lexed.push_back(create_token(STRING, str, l, col));
+      lexed.push_back(create_token(STRING, str, l, col, str));
       continue;
     }
     if (is_int(c)) {

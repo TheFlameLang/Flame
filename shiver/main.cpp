@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
         // very long but its just (end-start)->to millisec-> to double
         double time_end = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
         std::cout << termcolor::green << "Done\n" << termcolor::reset;
-        std::cout << "Buid is successful (" << time_end/1000 << "s)\n";
+        std::cout << "Buid successful (" << time_end/1000 << "s)\n";
     }
     return 0;
 }

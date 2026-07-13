@@ -7,6 +7,7 @@
 #include <cstdint>
 
 class ASTNode;
+
 class generator;
 
 using ast_type = enum class ast_type : uint8_t {
@@ -310,7 +311,8 @@ public:
   token id;
   astptr index;
   bool is_vector=false;
-  ArrayAccessNode(const token &id_, astptr i_, bool is_v=false) : id(id_), index(std::move(i_)), is_vector(is_v) {
+  bool isptr = false;
+  ArrayAccessNode(const token &id_, astptr i_, bool is_v=false, bool isptr_=false) : id(id_), index(std::move(i_)), is_vector(is_v), isptr(isptr_) {
     kind = ast_type::ARRAY_ACCESS;
   }
   std::string gen(generator &g) override;

@@ -26,10 +26,11 @@
 * build time
 
 
-### Flame 0.10.0(12.07.26):
+### Flame 0.10.0(13.07.26):
 
 * mutable and not mutable references(**function arguments only**)
 * new style of warnings
+* now only one mutable refernce can be defined for var
 
 * **BUGFIXES**:
     
@@ -37,3 +38,5 @@
     * arguments now can be consts(bug dont allowed it)
     * functions was overlap each other
     * bug was making that argument type and provided variable type even if mismatch it was working
+    * string tokens didnt have .str_value
+    * accessing string with compile time index 

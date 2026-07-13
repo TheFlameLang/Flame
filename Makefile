@@ -14,11 +14,11 @@ debug: main
 main: $(CXX_OBJ)
 	$(CXX) $(CXX_OBJ) -flto=thin -o flame
 
-build/%.o: %.cpp
+build/%.o: src/%.cpp
 	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 install:
-	cp flame $(HOME_)/.local/bin/flame
+	mv flame $(HOME_)/.local/bin/flame
 	mkdir -p $(HOME_)/.local/bin/flame_
 	cp -r stdlib/. $(HOME_)/.local/bin/flame_/
 

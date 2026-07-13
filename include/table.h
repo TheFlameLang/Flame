@@ -15,9 +15,10 @@ using symbol = struct symbol {
     std::string name="";
     bool is_vector=false;
     bool is_ptr=false;
-    bool is_moved=false;
-    bool is_ref=false;
     std::string module_name = "";
+    bool is_moved=false;
+    bool is_mut_now=true;
+    bool is_ref_arg=false;
 };
 
 using fsymbol = struct fsymbol {

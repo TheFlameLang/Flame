@@ -29,7 +29,5 @@ func main() i32 {
     cool* c;
     c.inc(2);
     print(c.b[0]);
-    free(c);
-    // print(c); that gives use-after-free error
     return 0;
 }

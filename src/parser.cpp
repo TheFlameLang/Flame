@@ -1,9 +1,9 @@
-#include "include/parser.h"
-#include "include/ast.h"
-#include "include/common.h"
-#include "include/eval_ast.h"
-#include "include/lexer.h"
-#include "include/table.h"
+#include "../include/parser.h"
+#include "../include/ast.h"
+#include "../include/common.h"
+#include "../include/eval_ast.h"
+#include "../include/lexer.h"
+#include "../include/table.h"
 #include <cstddef>
 #include <cstdlib>
 #include <fstream>
@@ -29,6 +29,9 @@ astptr parser::parse_factor()
     else if (tok.type == token_type::ID)
     {
         std::string id = tok.str_value;
+        if(search(id).is_moved) {
+            ParserError("\tCannot use moved pointer '"+id+"'\n", tok);
+        }
         if (peek().type == L_BRACKET)
         {
             if (!exist(tok.str_value))
@@ -43,16 +46,14 @@ astptr parser::parse_factor()
             std::vector<astptr> args_;
             u64 arg_i = 0;
             fsymbol *f = fsearch(tok.str_value);
-            bool is_freeing = false;
-            if(tok.str_value=="free") {
-                is_freeing=true;
-            }
+            std::vector<symbol> mut_vars;
             while (peek().type != R_BRACKET)
             {
                 token c = peek();
                 token n = peek(1);
                 if ((c.type == ID && (n.type == COMA || n.type == R_BRACKET) && f))
                 {
+                    symbol* s = searchptr(c.str_value);
                     if (arg_i >= f->args.size())
                     {
                         parser::line = c.line;
@@ -60,7 +61,7 @@ astptr parser::parse_factor()
                         throw ParseTimeError("\tExpected " + std::to_string(f->args.size()) + " arguments, got " +
                                              std::to_string(arg_i) + "\n");
                     }
-                    if (search(c.str_value).type != f->args[arg_i].type)
+                    if (s->type != f->args[arg_i].type)
                     {
                         parser::line = c.line;
                         parser::column = c.column;
@@ -68,13 +69,24 @@ astptr parser::parse_factor()
                                              disassemble_tok_type(f->args[arg_i].type) + "', but got '" +
                                              disassemble_tok_type(search_type(c.str_value)) + "'\n");
                     }
-                    if (search(c.str_value).is_array && search(c.str_value).size != f->args[arg_i].size)
+                    if (s->is_array && search(c.str_value).size != f->args[arg_i].size)
                     {
-                        parser::line = c.line;
-                        parser::column = c.column;
-                        throw ParseTimeError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
-                                             "'\n");
+                        ParserError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
+                                             "'\n", c);
                     }
+                    if(f->args[arg_i].is_ref_arg) {
+                        bool cont = false; // is contains
+                        for(auto &x : mut_vars) {
+                            if(s->name==x.name) {
+                                ParserError("\tVariable can only have one mutable reference\n", c);
+                            }
+                        }
+                        mut_vars.emplace_back(*s);
+                        s->is_mut_now=false;
+                    }
+                }
+                if(f && f->args[arg_i].is_ref_arg && f->args[arg_i].type!=c.type) {
+                    ParserError("\tCannot pass temporarily value as mutable reference\n", c);
                 }
                 arg_i++;
                 args_.push_back(parse_or());
@@ -141,8 +153,8 @@ astptr parser::parse_factor()
                     throw ParseTimeError("\tUnderflowed index of array '" + id + "'\n");
                 }
             }
-            if (have_id)
-                ParserWarning("\taccesing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
+            if (have_id) 
+                ParserWarning("\tAccessing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
             auto *val = get_if<bool>(&array.value);
             if (val && *val == 1)
             {
@@ -151,8 +163,9 @@ astptr parser::parse_factor()
                 throw ParseTimeError("\tAccesing uninitilyzed area of '" + id + "'\n");
             }
             consume(R_SQ_BRACKET);
-            if (peek().type != EQ)
-                return std::make_unique<ArrayAccessNode>(tok, std::move(i), array.is_vector);
+            if (peek().type != EQ) {
+                return std::make_unique<ArrayAccessNode>(tok, std::move(i), array.is_vector, array.is_ptr);
+            }
             consume(EQ);
             if (array.is_const)
             {
@@ -178,7 +191,7 @@ astptr parser::parse_factor()
                     throw ParseTimeError("\tUnderflowed index of array '" + id + "'\n");
                 }
             }
-            ParserWarning("\taccesing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
+            ParserWarning("\tAccessing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
             astptr value = parse_expr();
             return std::make_unique<ArrayChangeNode>(tok, std::move(i), std::move(value));
         }
@@ -212,18 +225,6 @@ astptr parser::parse_factor()
                 return std::make_unique<Node>(
                     token{.type = LONG, .value = var.value, .line = tok.line, .column = tok.column});
             }
-        }
-        if(search(tok.str_value).is_ptr) {
-            for(auto &x : freed_list) {
-                    if(x==tok.str_value) {
-                        parser::line = tok.line;
-                        parser::column = tok.column;
-                        throw ParseTimeError("\tUse-after-free of pointer '" + tok.str_value + "'\n");
-                    }
-            }
-        }
-        if(search(id).is_moved) {
-            ParserError("\tCannot use moved pointer '"+id+"'\n", tok);
         }
         return std::make_unique<Node>(tok, search(tok.str_value).is_ptr);
     }
@@ -494,11 +495,15 @@ astptr parser::parse_return(const token_type& expectedType, bool isptr_return)
         if(t.type==ID) {
             // if return ID or similar
             symbol s = search(t.str_value);
+            if(s.type==FUNC) s.type = fsearch(s.name)->type;
             // if return x is i32 but function returning string
             if(s.type!=expectedType) {
                 // integer type promotion
-                if(!(s.type<expectedType)&&expectedType<STRING) {
-                    ParserWarning("\tHidden int casting", t, "HiddenCast");
+                if(s.type<expectedType&&expectedType<STRING_TYPE) {
+                    ParserWarning("\tHidden int casting from "
+                        + disassemble_tok_type(s.type) + " to "
+                        + disassemble_tok_type(expectedType)
+                        , t, "HiddenCast");
                 }
                 else {
                     ParserError("\tCannot return '" + disassemble_tok_type(s.type) +
@@ -569,13 +574,16 @@ astptr parser::parse_func_statement(const std::string &struct_)
     {
         bool is_const = false;
         bool is_ref = false;
+        bool is_mut = false;
         if (peek().type == CONST)
         {
             consume(CONST);
             is_const = true;
         }
         if(peek().type == MUT) {
-            bool is_const = false;
+            consume(MUT);
+            is_mut = true;
+            is_const = false;
         }
         if (peek().type==REF)
         {
@@ -618,7 +626,8 @@ astptr parser::parse_func_statement(const std::string &struct_)
                      .is_const = is_const,
                      .size = i,
                      .is_array = is_array,
-                     .name = arg_id.str_value
+                     .name = arg_id.str_value,
+                     .is_ref_arg=is_mut
                     });
         if (peek().type == COMA)
             consume();
@@ -653,6 +662,7 @@ astptr parser::parse_func_statement(const std::string &struct_)
     }
     table.pop_back();
     returning = false;
+    fsearch(id.str_value)->type=return_type.type;
     if(is_module) insert(struct_ + id.str_value, FUNC, nothing{}, false,1, false, false, false, false, filename);
     else insert(struct_ + id.str_value, FUNC, nothing{});
     return std::make_unique<FuncNode>(id, return_type, std::move(args_), std::move(block), is_array, size);
@@ -928,7 +938,8 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
     if (type.type == ID)
     {
         if (peek().type == PLUS || peek().type == MINUS || peek().type == STAR || peek().type == SLASH ||
-            peek().type == MOD)
+            peek().type == MOD || peek().type == XOR || peek().type == AND_B || peek().type == OR_B ||
+            peek().type == SHIFT_L || peek().type == SHIFT_R)
         {
             token op = consume();
             if (!exist(type.str_value))
@@ -937,6 +948,9 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
                 parser::column = type.column;
                 throw ParseTimeError("\tUse undeclared variable '" + type.str_value + "'\n");
             }
+            //if(!search(type.str_value).is_mut_now) {
+                // ParserError("\tVariable is cannot be modified because of mutable reference\n", type);
+            //}
             consume(EQ);
 
             u64 rollback = indx;
@@ -1055,6 +1069,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         }
         consume(EQ);
         std::string mov_from = "";
+        u64 size = 0;
         const u64 rollback = indx;
         while(peek().type!=SEMI) {
             token t = consume();
@@ -1069,7 +1084,15 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
                         + id.str_value + "', because types dont match\n"
                         , t);
                 }
+                symbol str = search(type.str_value);
+                if(str.type==STRING_TYPE&&s->type!=STRING_TYPE) {
+                    ParserError("\tCannot define string variable with non string value\n", t);
+                }
+                if(str.type==STRING_TYPE) size = str.size;
                 mov_from = s->name;
+            }
+            if(t.type==STRING) {
+                size = t.str_value.size();
             }
         }
         indx = rollback;
@@ -1080,8 +1103,8 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
             if(s) s->is_moved=true;
         }
         const bool ismov = mov_from!="";
-        if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true, filename);
-        else insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true, "");
+        if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, false, false,false,true, filename);
+        else insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, false, false,false,true, "");
         return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, std::move(value), is_const, "", true, ismov);
     }
     token id = consume(token_type::ID);
@@ -1118,9 +1141,25 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, astptr{}, is_const);
     }
     consume(token_type::EQ);
+    u64 size = 0;
+    if(type.type==STRING_TYPE) {
+        token t = peek();
+        if(t.type!=STRING) {
+            if(t.type!=ID) {
+                ParserError("\tCannot define string variable with non string value\n", t);
+            }
+            symbol s = search(t.str_value);
+            if(s.type!=STRING_TYPE) {
+                ParserError("\tCannot define string variable with non string value\n", t);
+            }
+            size = s.size;
+        } else {
+            size = t.str_value.size();
+        }
+    }
     astptr value = parse_or();
-    if(is_module&&!comptime) insert(struct_ + id.str_value, type.type, nothing{}, is_const, false, false, false, false, false, filename);
-    else insert(struct_ + id.str_value, type.type, nothing{}, is_const, false, false, comptime, false, false);
+    if(is_module&&!comptime) insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, false, false, false, false, filename);
+    else insert(struct_ + id.str_value, type.type, nothing{}, is_const, size,  false, comptime, false, false);
     consume(SEMI);
     return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, std::move(value), is_const);
 }
@@ -1178,9 +1217,11 @@ astptr parser::parse_method()
                 if (a)
                     a->size--;
             }
+            std::vector<symbol> mut_vars;
             while (peek().type != R_BRACKET)
             {
                 token c = peek();
+                symbol* s = searchptr(c.str_value);
                 token n = peek(1);
                 if ((c.type == ID && (n.type == COMA || n.type == R_BRACKET) && f))
                 {
@@ -1206,6 +1247,24 @@ astptr parser::parse_method()
                         throw ParseTimeError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
                                              "'\n");
                     }
+                    if (s->is_array && search(c.str_value).size != f->args[arg_i].size)
+                    {
+                        ParserError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
+                                             "'\n", c);
+                    }
+                    if(f->args[arg_i].is_ref_arg) {
+                        bool cont = false; // is contains
+                        for(auto &x : mut_vars) {
+                            if(s->name==x.name) {
+                                ParserError("\tVariable can only have one mutable reference\n", c);
+                            }
+                        }
+                        mut_vars.emplace_back(*s);
+                        s->is_mut_now=false;
+                    }
+                }
+                if(f && f->args[arg_i].is_ref_arg && f->args[arg_i].type!=c.type) {
+                    ParserError("\tCannot pass temporarily value as mutable reference\n", c);
                 }
                 arg_i++;
                 args_.push_back(parse_or());

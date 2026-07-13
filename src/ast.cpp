@@ -1,8 +1,8 @@
-#include "include/ast.h"
-#include "include/common.h"
-#include "include/generator.h"
-#include "include/lexer.h"
-#include "include/table.h"
+#include "../include/ast.h"
+#include "../include/common.h"
+#include "../include/generator.h"
+#include "../include/lexer.h"
+#include "../include/table.h"
 #include <sstream>
 #include <string>
 std::string Node::gen(generator &g)
@@ -191,12 +191,6 @@ std::string FuncCallNode::gen(generator &g)
         args_ += g.gencode(args.at(0)) + ')';
         return args_;
     }
-    if (id == "free")
-    {
-        args_ = "delete ";
-        args_ += g.gencode(args.at(0));
-        return args_;
-    }
     for (u64 i = 0; i < args.size(); i++)
     {
         args_ += g.gencode(args[i]);
@@ -262,13 +256,6 @@ std::string FuncNode::gen(generator &g)
     code << ") ";
     code << g.gencode(block);
     code << '\n';
-    for(auto &x : notfreed_list) {
-        if(x!="") {
-            g.line = id.line;
-            g.column = id.column;
-            throw TranspileTimeError("\tPointer '" + x + "' is not freed(free(" + x + "))\n");
-        }
-    }
     return code.str();
 }
 
@@ -461,6 +448,7 @@ std::string ArrayNode::gen(generator &g)
 
 std::string ArrayAccessNode::gen(generator &g)
 {
+    if(isptr) return "(*" + id.str_value + ")[" + g.gencode(index) + "]";
     if(is_vector) return id.str_value + ".at(" + g.gencode(index) + ")";
     return id.str_value + "[" + g.gencode(index) + "]";
 }
