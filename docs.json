@@ -28,5 +28,10 @@
   "favicon": {
     "light": "/images/fire.png",
     "dark": "/images/fire.png"
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/TheFlameLang/Flame"
+    }
   }
 }
