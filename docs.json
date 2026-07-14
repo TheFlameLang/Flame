@@ -8,7 +8,7 @@
   "navigation": {
     "groups": [
       {
-        "group": "Home",
+        "group": "Basics",
         "pages": [
           "index",
           "Installation",
