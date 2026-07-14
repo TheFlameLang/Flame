@@ -3,4 +3,17 @@ title: "Structs"
 icon: "object-union"
 ---
 
-Str
+Struct is data type that can store other variables and have methods. It organizes variables and functions into one object that called `structure` . Example:
+
+```shellscript
+struct point {
+    i32 x;
+    i32 y;
+
+    func whereami() void {
+        print("You at ", x, " ", y, "\n");
+    }
+}
+```
+
+Structure `point` have two fields, `x` and `y`. They can be accessed like this: `point_var.x` Also you can use methods to do something with values that your structure is holding, in our example method `whereami` prints `point.x` and `point.y`.
