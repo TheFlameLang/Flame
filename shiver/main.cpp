@@ -6,7 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include "../include/third-party/termcolor.hpp""
+#include "../include/third-party/termcolor.hpp"
 
 
 int main(int argc, char* argv[]) {
