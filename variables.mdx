@@ -16,6 +16,8 @@ const i32 PI = 3.14; // cannot change value
 comptime i32 z = 13; // doesnt exist at runtime
 ```
 
+And by the way, if you declare variable like `i32 z;` , it will not contain garbage if you try accessing it, because Flame assigns it to 0 by default.
+
 Also for function argument we have `ref` as immutable reference and `mut ref` as mutable:
 
 ```shellscript
