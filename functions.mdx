@@ -1,0 +1,37 @@
+---
+title: "Functions"
+icon: "function"
+---
+
+#### Syntax
+
+Lets talk about functions. Its fundamental part of any programming language. And Flame supports them!
+
+```shellscript
+func add(i32 a, i32 b) i32 {
+    return a+b;
+}
+```
+
+Function declaration starts with `func` keyword and followed by function name, in our example it is `add` . Then we start argument declaration with left bracket. Parameter support many types, from basic ones like i32 or string to special ones that only used in functions:
+
+- `ref` - creates immutable reference to parsed argument
+- `mut ref` - creates mutable reference to parsed argument
+
+Then we name return type, if function return value it can be for example i32, u8 or string, but if function doesn't return value we use `void` keyword:
+
+```shellscript
+void say(string msg) void {
+    print(msg);
+}
+```
+
+#### Builtin
+
+Flame has a few builtin functions:
+
+`print(args)` - prints args
+
+`input(var)` - stores inputted value into `var` 
+
+`sizeof(arg)`  - returns size of literal or variable

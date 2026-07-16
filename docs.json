@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
+  "theme": "luma",
   "name": "Flame Language",
   "colors": {
     "primary": "#ff0000"
@@ -8,13 +8,31 @@
   "navigation": {
     "groups": [
       {
-        "group": "Home",
+        "group": "Basics",
         "pages": [
           "index",
           "Installation",
-          "Types"
+          "Types",
+          "variables",
+          "comments",
+          "functions",
+          "structs"
         ]
       }
     ]
+  },
+  "description": "Flame programming language docs",
+  "logo": {
+    "light": "/images/fire.png",
+    "dark": "/images/fire.png"
+  },
+  "favicon": {
+    "light": "/images/fire.png",
+    "dark": "/images/fire.png"
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/TheFlameLang/Flame"
+    }
   }
 }

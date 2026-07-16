@@ -5,32 +5,23 @@ icon: "down-to-bracket"
 
 #### Requirements:
 
-- gcc 10\+ or clang 10\+
-- x86\_64 os
-- termcolor lib
+- GCC 10\+ or Clang 10\+
+- x86\_64 OS
 
-Installing Flame via git:
+#### Installing Flame via git:
 
 ```sh
 git clone https://github.com/TheFlameLang/Flame.git
 cd Flame
 make -j$(nproc)
-sudo make install
+make install # installing Flame
+cd Shiver 
+make
+make install # installing Shiver(build system)
 ```
 
-Installing Shiver(build system) via git:
-
-#### if already did what above
+#### Installing via AUR (Arch Linux):
 
 ```sh
-cd shiver
-make
-```
-
-#### else
-
-```sh
-git clone https://github.com/TheFlameLang/Flame.git
-cd Flame/shiver
-make
+yay -S flamelang-git
 ```
