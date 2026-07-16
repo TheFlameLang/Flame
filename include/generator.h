@@ -30,7 +30,7 @@ public:
   int indent = 0;
   u64 line=1;
   u64 column=0;
-
+  bool c_gen=false;
   std::string pad() { return std::string(static_cast<int>(indent * 4), ' '); }
 
   std::ostringstream cpp_code;
@@ -39,7 +39,7 @@ public:
     return node->gen(*this);
   }
 
-  std::string generate(std::vector<astptr> &nodes) {
+  inline void cpp_headers() {
     if(header.find("<iostream>\n")==std::string::npos) { 
       header += "#include <iostream>\n";
     }
@@ -55,6 +55,24 @@ public:
     if(header.find("<memory>")==std::string::npos) {
       header += "#include <memory>\n";
     }
+  }
+
+  inline void c_headers() {
+    if(header.find("<iostream>\n")==std::string::npos) { 
+      header += "#include <stdio.h>\n";
+    }
+    if(header.find("<cstdint>")==std::string::npos) {
+      header += "#include <stdint.h>\n";
+    }
+    if(header.find("<oxygen_runtime.h>")==std::string::npos) {
+      header += "#include <oxygen_runtime.h>\n";
+    }
+  }
+
+  std::string generate(std::vector<astptr> &nodes) {
+    if(c_gen) c_headers();
+    else cpp_headers();
+    
     for (auto &x : nodes) {
       if(!x) continue;
       std::string c = gencode(x);

@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
         if (skip_init) {
             std::ofstream f("project.toml");
             f << "name = \"example\"\n";
-            f << "version = \"1.0.0\"\n";
+            f << "version = \"1.1.0\"\n";
             f << "\n";
             f << "license = \"MIT\"\n";
             f << "author = \"cool guy\"\n";
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
                 if(y.path().extension() == ".flame") {
                     const std::string n = y.path().stem();
                     const std::string name = y.path().filename();
-                    std::string cmd_ = "flame -C "; cmd_ += x + '/' + name; cmd_ += " -o ./build/" + n;
+                    std::string cmd_ = "flame -CXX "; cmd_ += x + '/' + name; cmd_ += " -o ./build/" + n;
                     std::cout << "Compiling " << termcolor::bright_yellow << x << '/' <<  name << termcolor::reset
                     << " into C++...\n";
                     if(verbose) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd_ << '\n';
@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
         }
         std::ostringstream cmd;
         cmd << cxx << ' ' << final << " -o " << output;
-        if(verbose) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd.str() << '\n';
+        if(verbose&&!error) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd.str() << '\n';
         if(!error) std::cout << "Linking files together...";
         else {
             std::cout << "Build is unsuccessful...\n";

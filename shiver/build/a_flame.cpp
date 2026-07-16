@@ -149,8 +149,9 @@ float test(const float &a)  {
 
 int32_t main()  {
     std::unique_ptr<std::string> ass=std::make_unique<std::string>("hi");
-    test("a");
-    std::cout << (*ass)[1];
+    std::cout << (*ass)[0] << (*ass)[1];
+    int32_t a=10;
+    a ^= 20;
     return 0;
 }
 

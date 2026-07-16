@@ -187,6 +187,44 @@ inline std::string type_in_cpp(const token &a) {
   return type;
 }
 
+inline std::string type_in_c(const token &a) {
+  std::string type;
+  if (a.type == BYTE_TYPE)
+    type = "int8_t ";
+  if (a.type == WORD_TYPE)
+    type = "int16_t ";
+  if (a.type == INT_TYPE)
+    type = "int32_t ";
+  if (a.type == LONG_TYPE)
+    type = "int64_t ";
+  if (a.type == FLOAT_TYPE)
+    type = "float ";
+  if (a.type == DOUBLE_TYPE)
+    type = "double ";
+  if (a.type == STRING_TYPE) {
+    type = "string* ";
+  }
+  if (a.type == BOOL_TYPE)
+    type = "bool ";
+  if (a.type == UNSIGNED_8_TYPE)
+    type = "uint8_t ";
+  if (a.type == UNSIGNED_16_TYPE)
+    type = "uint16_t ";
+  if (a.type == UNSIGNED_32_TYPE)
+    type = "uint32_t ";
+  if (a.type == UNSIGNED_64_TYPE)
+    type = "uint64_t ";
+  if (a.type == VOID_TYPE)
+    type = "void ";
+  if (a.type == AUTO_TYPE)
+    type = "exit(1)";
+  if (a.type == VEC)
+    type = "exit(1)";
+  if (a.type == STRUCT)
+    type = "struct ";
+  return type;
+}
+
 inline std::string op2string(token_type a) {
   std::string op;
   if (a == PLUS)
