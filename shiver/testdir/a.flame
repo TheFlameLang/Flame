@@ -15,8 +15,8 @@ func test(mut ref f32 a) f32 {
 
 
 func main() i32 {
-	string* ass = "hi";
-	print(ass[0], ass[1]);
+	//string* ass = "hi";
+	//print(ass[0], ass[1]);
 	i32 a = 10;
 	a ^=20;
 	return 0;
