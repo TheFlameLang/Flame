@@ -10,7 +10,8 @@ float test(float * a)  {
 }
 
 int32_t main()  {
-    std::string s="hi";
+    string s;
+oxygen_new_string( &s, "hi");
     int32_t a=10;
     a ^= 20;
     return 0;
