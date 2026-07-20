@@ -3,6 +3,7 @@
 #include "lexer.h"
 #include "ast.h"
 #include "common.h"
+#include <algorithm>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -23,7 +24,14 @@ class ParseTimeError : public std::exception {
   }
 };
 
-
+inline std::string replaceChar(std::string s, char oldChar, char newChar) {
+    std::replace(s.begin(), s.end(), oldChar, newChar);
+    std::size_t pos;
+    while ((pos = s.find("__")) != std::string::npos) {
+        s.replace(pos, 2, "_");
+    }
+    return s;
+}
 
 
 class parser {
@@ -35,10 +43,23 @@ class parser {
     std::string filename; // filename
     bool errors=false;
     bool is_module=false;
+    bool c_gen=false;
     explicit parser(const std::vector<token> &a, const std::string &f) {
         src = a;
         indx = 0;
         filename = f;
+    }
+    std::string get_name(const std::string& varname, const std::string& struct_n="", bool module=true ) {
+        //std::string fname = replaceChar(filename, '.', '_');
+        if(is_module&&module) {
+            std::string temp = filename + "_" + struct_n + "_" + varname;
+            return replaceChar(temp, '.', '_');
+        }
+        else {
+            if(struct_n=="") return varname;
+            std::string temp = struct_n + "_" + varname;
+            return replaceChar(temp, '.', '_');
+        }
     }
     bool returning=false; // internal: is parse_block seen return for function
 

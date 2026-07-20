@@ -3,6 +3,7 @@
 #include "../include/generator.h"
 #include "../include/table.h"
 #include <map>
+#include <memory>
 #include <sstream>
 
 
@@ -16,7 +17,7 @@ std::string Node::gen_(generator &g)
         if(var.comptime&&var.type==STRING_TYPE) return variant2string(var.value);
         if(var.comptime&&(var.type==FLOAT_TYPE)) return std::to_string(variant2float(var.value));
         if(var.comptime&&(var.type==DOUBLE_TYPE)) return std::to_string(variant2double(var.value));
-        if(isptr) return "*" + tok.str_value;
+        if(isptr||is_ref_arg) return "*" + tok.str_value;
         else return tok.str_value;
     }
     return variant2value(tok);
@@ -125,8 +126,8 @@ std::string AssignmentNodeExpr::gen_(generator &g)
         type += "double";
     if (type_ == STRING_TYPE)
     {
-        type += "std::string";
-        nullval = "\"\"";
+        type += "string";
+        nullval = "";
     }
     if (type_ == BOOL_TYPE)
         type += "bool";
@@ -143,14 +144,19 @@ std::string AssignmentNodeExpr::gen_(generator &g)
         if(val) {
             if(is_mov) {
                 std::ostringstream s;
-                s << type << "* " << id << " = " << "__oxygen_move((void**)&" << g.gencode(val).substr(1) << ")";
+                s << type << "* " << id << " = " << "oxygen_move((void**)&" << g.gencode(val).substr(1) << ")";
                 return s.str();
             }
-            else return "std::unique_ptr<" + type +  "> " + id + "=" + "std::make_unique<" + type + ">(" + g.gencode(val) + ")";
+            else return type + "* " + id + " = malloc(sizeof(" + type + "));\n" + g.pad() + "*" + id + " = " + g.gencode(val);
         }
         else return type +  "* " + id;
     }
-    if(struct_id!="") return type + " " + id;
+    if(struct_id!="") return type + " " + id + " = " + type + "_flame_def_init()";
+    if(type_==STRING_TYPE) {
+        std::string a = const_ + type + ' ' + id + ";\n";
+        a += "    oxygen_new_string( &" + id + ", " + (val ?  g.gencode(val) : "") + ")";
+        return a;
+    }
     return const_ + type + ' ' + id + (val ? "=" + g.gencode(val) : "=" + nullval);
 }
 
@@ -202,11 +208,18 @@ std::string FuncCallNode::gen_(generator &g)
     }
     for (u64 i = 0; i < args.size(); i++)
     {
-        args_ += g.gencode(args[i]);
+        if(args[i]->kind==ast_type::JUSTNODE) {
+            Node* n = dynamic_cast<Node*>(args[i].get());
+            if(n->is_ref_arg) {
+                args_ += "REF(" + n->tok.str_value + ")";
+            }
+            else args_ += g.gencode(args[i]);
+        }
+        else args_ += g.gencode(args[i]);
         if (i + 1 < args.size())
             args_ += ", ";
     }
-    return id + '(' + args_ + ')' + want_get;
+    return id + '(' + args_ + ')';
 }
 
 std::string CondNode::gen_(generator &g)
@@ -251,10 +264,10 @@ std::string FuncNode::gen_(generator &g)
 {
     std::ostringstream code;
     if(is_return_type_array) {
-        code << "std::array<" << type_in_cpp(type) << ',' << std::to_string(size) << ">";
+        code << "std::array<" << type_in_c(type) << ',' << std::to_string(size) << ">";
     }
-    else code << type_in_cpp(type);
-    code << id.str_value;
+    else code << type_in_c(type);
+    code << id;
     code << '(';
     for (u64 i = 0; i < args.size(); i++)
     {
@@ -273,12 +286,12 @@ std::string ArgumentNode::gen_(generator &g)
     (void)g;
     std::string type_;
     if(isconst&&!ref) type_ += "const ";
-    type_ += type_in_cpp(type);
-    if(ref) return "const " + type_ + "*" + id.str_value;
-    if(ismut) return type_ + "*" + id.str_value;
+    type_ += type_in_c(type);
+    if(ismut) return type_ + "* " + id;
+    if(ref) return "const " + type_ + "*const " + id;
     if(is_array) 
-        return "std::array<"+type_in_cpp(type)+','+std::to_string(size_if_array)+">"+id.str_value;
-    return type_ + id.str_value;
+        return type_in_c(type)+'['+std::to_string(size_if_array)+"] "+id;
+    return type_ + id;
 }
 
 std::string ReturnNode::gen_(generator &g)
@@ -332,4 +345,223 @@ std::string IncDecVarNode::gen_(generator &g)
     }
     else
         return id + "--";
+}
+
+std::string ForNode::gen_(generator &g)
+{
+    std::string code = " for(";
+    code += g.gencode(var) + ';';
+    code += g.gencode(cond) + ';';
+    code += g.gencode(thing);
+    code += ')';
+    code += g.gencode(block);
+    return code;
+}
+
+std::string ReAssignmentNodeExpr::gen_(generator &g)
+{
+    std::string op;
+    switch (type_)
+    {
+    case PLUS:
+    {
+        op = " += ";
+        break;
+    }
+    case MINUS:
+    {
+        op = " -= ";
+        break;
+    }
+    case STAR:
+    {
+        op = " *= ";
+        break;
+    }
+    case SLASH:
+    {
+        op = " /= ";
+        break;
+    }
+    case MOD:
+    {
+        op = " %= ";
+        break;
+    }
+    case XOR:
+    {
+        op = " ^= ";
+        break;
+    }
+    case OR_B:
+    {
+        op = " |= ";
+        break;
+    }
+    case AND_B:
+    {
+        op = " &= ";
+        break;
+    }
+    default:
+        break;
+    }
+    return id + op + g.gencode(val);
+}
+
+
+/*
+
+ARRAY NODE LATER
+
+*/
+
+std::string ArrayNode::gen_(generator &g)
+{
+    if(is_vector) {
+        std::string type_ = type_in_c(type);
+        if(is_init) {
+            return "std::vector<"+type_+">"+id + '=' + g.gencode(values.at(0));
+        }
+        std::string values_ = "{";
+        if (!values.empty())
+        {
+        for (u64 i = 0; i < values.size(); i++)
+        {
+            values_ += g.gencode(values[i]);
+            if (i + 1 < values.size())
+                values_ += ", ";
+            }
+            values_ += "}";
+        }
+        else
+        {
+            values_ = "";
+        }
+        if(!values.empty()) {
+            return "std::vector<"+type_+">"+id + '=' + values_;
+        }
+        return "std::vector<"+type_+">"+id;
+    }
+    std::string type_ = type_in_c(type);
+    if(is_init) {
+        return type_ + id + '[' + std::to_string(size)+">" + "] =" + g.gencode(values.at(0));
+    }
+    std::string values_ = "{";
+    if (!values.empty())
+    {
+        for (u64 i = 0; i < values.size(); i++)
+        {
+            values_ += g.gencode(values[i]);
+            if (i + 1 < values.size())
+                values_ += ", ";
+        }
+        values_ += "}";
+    }
+    else
+    {
+        return type_ + id + '[' + std::to_string(size)+">" + "]";
+    }
+    return type_ + id + '[' + std::to_string(size) + "] = " + values_;
+    //return "std::array<"+type_+','+std::to_string(size)+">"+id;
+
+    /*
+    if (!values.empty())
+        return type_ + id + "[" + std::to_string(size) + "] = " + values_;
+    return type_ + id + "[" + std::to_string(size) + "]";
+    if (!values.empty())
+        return type_ + id + "[] = " + values_;
+    return type_ + id + "[]";
+    */
+}
+
+std::string ArrayAccessNode::gen_(generator &g)
+{
+    if(isptr) return "(*" + id.str_value + ")[" + g.gencode(index) + "]";
+    if(is_vector) return id.str_value + ".at(" + g.gencode(index) + ")";
+    return id.str_value + "[" + g.gencode(index) + "]";
+}
+
+std::string ArrayChangeNode::gen_(generator &g)
+{
+    return id.str_value + "[" + g.gencode(index) + "] = " + g.gencode(value);
+}
+
+std::string ModuleNode::gen_(generator &g)
+{
+    std::ostringstream code;
+    generator gen;
+    gen.is_mod = true;
+    gen.c_gen = g.c_gen;
+    code << gen.generate(module);
+    g.header += code.str();
+    return "";
+}
+
+std::string MethodNode::gen_(generator &g) {
+    std::string code = parent;
+    unsigned long i = 0;
+    std::string accessor = isptr ? "->" : ".";
+    for(auto &x : children) {
+        if(type==VEC) {
+            if(x->kind==ast_type::FuncCall) {
+                auto n = static_cast<FuncCallNode*>(x.get());
+                if(n->id=="push") {
+                    code += '.';
+                    std::string args_;
+                    args_ += g.gencode(n->args[0]);
+                    code += "emplace_back(" + args_ + ')';
+                    return code;
+                } else if(n->id=="pop") {
+                    code += '.';
+                    code += "pop_back()";
+                    return code;
+                }
+            }
+        }
+        code += accessor + g.gencode(x);
+        accessor = (i < isptrs.size() && isptrs[i]) ? "->" : ".";
+        i++;
+    }
+    return code;
+}
+
+std::string ModuleCallNode::gen_(generator &g) {
+    std::string code = "";
+    unsigned long i = 0;
+    std::string accessor = "";
+    for(auto &x : children) {
+        code += accessor + g.gencode(x);
+        accessor = (i < isptrs.size() && isptrs[i]) ? "->" : ".";
+        i++;
+    }
+    return code;
+}
+
+std::string StructNode::gen_(generator &g) {
+    std::ostringstream code;
+    std::ostringstream funcs;
+    std::ostringstream default_init;
+    default_init << id << ' ' << id << "_flame_def_init() {\n";
+    default_init << "    " << id << " Temp;\n";
+    code << "typedef struct " << id;
+    code << " {\n";
+    g.indent++;
+    for (auto &x : block)
+    {
+        code << g.pad();
+        if(x->kind==ast_type::DEFINEVAR) {
+            AssignmentNodeExpr* n = dynamic_cast<AssignmentNodeExpr*>(x.get());
+            code << type_in_c(token{.type=n->type_}) << n->id << ";\n";
+            default_init  << "    Temp." << n->id << " = " << g.gencode(n->val) << ";\n";
+        } else {
+            code << g.gencode(x);
+            code << ";\n";
+        }
+    }
+    g.indent--;
+    code << g.pad() + "} " << id << ';';
+    default_init << "    return Temp;\n}";
+    code << '\n' << default_init.str();
+    return code.str();
 }

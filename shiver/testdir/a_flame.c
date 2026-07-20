@@ -1,59 +1,63 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <oxygen_runtime.h>
-int64_t stdlib_flame__abs(int64_t a)  {
-    if((a > 0)) {
-        return a;
+const int64_t stddef_flame_I64_MIN=(-9223372036854775807 - 1);
+int64_t stdlib_flame_abs(int64_t stdlib_flame_a)  {
+    if((stdlib_flame_a == stddef_flame_I64_MIN)) {
+        return 9223372036854775807;
     };
-    return -a;
-}
-
-const double PI=3.140000;
-double stdlib_flame__sqrt(double a)  {
-    double x=1.000000;
-     for(int32_t i=0;(i <= 6);i++) {
-        x=(0.500000 * (x + (a / x)));
+    if((stdlib_flame_a > 0)) {
+        return stdlib_flame_a;
     };
-    return x;
+    return -stdlib_flame_a;
 }
 
-double stdlib_flame__floor_helper(double a)  {
-    double res=a;
-    if(((a < 0) && (a != res))) {
-        return (res - 1);
+const double stdlib_flame_PI=3.140000;
+double stdlib_flame_sqrt(double stdlib_flame_a)  {
+    double stdlib_flame_x=1.000000;
+     for(int32_t stdlib_flame_i=0;(stdlib_flame_i <= 6);stdlib_flame_i++) {
+        stdlib_flame_x=(0.500000 * (stdlib_flame_x + (stdlib_flame_a / stdlib_flame_x)));
     };
-    return res;
+    return stdlib_flame_x;
 }
 
-double stdlib_flame__floor(double a)  {
-    if(((a - stdlib_flame_._floor_helper(a)) < 0.500000)) {
-        return stdlib_flame_._floor_helper(a);
+double stdlib_flame_floor_helper(double stdlib_flame_a)  {
+    double stdlib_flame_res=stdlib_flame_a;
+    if((stdlib_flame_a < 0)) {
+        return (stdlib_flame_res - 1);
     };
-    return stdlib_flame_._floor_helper((a + 1));
+    return stdlib_flame_res;
 }
 
-double stdlib_flame__fmod(double a, double b)  {
-    double res=(a - (b * stdlib_flame_._floor((a / b))));
-    return res;
-}
-
-double stdlib_flame__pow(double a, int8_t b)  {
-    double res=a;
-     for(int32_t i=1;(i < b);i++) {
-        res *= a;
+double stdlib_flame_floor(double stdlib_flame_a)  {
+    if(((stdlib_flame_a - stdlib_flame_floor_helper(stdlib_flame_a)) < 0.500000)) {
+        return stdlib_flame_floor_helper(stdlib_flame_a);
     };
-    return res;
+    return stdlib_flame_floor_helper((stdlib_flame_a + 1));
 }
 
-double stdlib_flame__fshiftr(double a, int8_t n)  {
-    return (a / stdlib_flame_._pow(2, n));
+double stdlib_flame_fmod(double stdlib_flame_a, double stdlib_flame_b)  {
+    double stdlib_flame_res=(stdlib_flame_a - (stdlib_flame_b * stdlib_flame_floor((stdlib_flame_a / stdlib_flame_b))));
+    return stdlib_flame_res;
 }
 
-double stdlib_flame__fshiftl(double a, int8_t n)  {
-    return (a * stdlib_flame_._pow(2, n));
+double stdlib_flame_pow(double stdlib_flame_a, int8_t stdlib_flame_b)  {
+    double stdlib_flame_res=stdlib_flame_a;
+     for(int32_t stdlib_flame_i=1;(stdlib_flame_i < stdlib_flame_b);stdlib_flame_i++) {
+        stdlib_flame_res *= stdlib_flame_a;
+    };
+    return stdlib_flame_res;
 }
 
-void stdlib_flame__println(string s)  {
+double stdlib_flame_fshiftr(double stdlib_flame_a, int8_t stdlib_flame_n)  {
+    return (stdlib_flame_a / stdlib_flame_pow(2, stdlib_flame_n));
+}
+
+double stdlib_flame_fshiftl(double stdlib_flame_a, int8_t stdlib_flame_n)  {
+    return (stdlib_flame_a * stdlib_flame_pow(2, stdlib_flame_n));
+}
+
+void stdlib_flame_println(string stdlib_flame_s)  {
     return;
 }
 
@@ -80,6 +84,7 @@ int32_t main()  {
     oxygen_new_string( &s, "hi");
     int32_t a=10;
     a ^= 20;
+    a=stdlib_flame_PI;
     oxygen_string_destroy(&s);
     free(t);
     return a;

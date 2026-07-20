@@ -202,7 +202,7 @@ inline std::string type_in_c(const token &a) {
   if (a.type == DOUBLE_TYPE)
     type = "double ";
   if (a.type == STRING_TYPE) {
-    type = "string* ";
+    type = "string ";
   }
   if (a.type == BOOL_TYPE)
     type = "bool ";

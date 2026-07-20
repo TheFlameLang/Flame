@@ -31,15 +31,18 @@ public:
   u64 line=1;
   u64 column=0;
   bool c_gen=false;
+  bool is_mod = false;
   std::string pad() { return std::string(static_cast<int>(indent * 4), ' '); }
 
-  std::ostringstream cpp_code;
+  std::ostringstream gen_code;
   std::string header;
   std::string gencode(astptr &node) {
+    if(c_gen) return node->gen_(*this);
     return node->gen(*this);
   }
 
   inline void cpp_headers() {
+    if(is_mod) return;
     if(header.find("<iostream>\n")==std::string::npos) { 
       header += "#include <iostream>\n";
     }
@@ -58,6 +61,7 @@ public:
   }
 
   inline void c_headers() {
+    if(is_mod) return;
     if(header.find("<iostream>\n")==std::string::npos) { 
       header += "#include <stdio.h>\n";
     }
@@ -81,12 +85,12 @@ public:
 
       if (x->kind != ast_type::MODULE && x->kind != ast_type::BLOCK &&
           x->kind != ast_type::IF&&x->kind!=ast_type::FUNC)
-        cpp_code << c + ';';
+        gen_code << c + ';';
 
       else
-        cpp_code << c;
-      cpp_code << '\n';
+        gen_code << c;
+      gen_code << '\n';
     }
-    return header + cpp_code.str();
+    return header + gen_code.str();
   }
 };

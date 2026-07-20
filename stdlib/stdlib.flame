@@ -1,6 +1,12 @@
-// Stdlib v1.3.2 by Naharashu (11.07.26)
+// Stdlib v1.4 by Naharashu (20.07.26)
 // MIT License
+
+use stddef;
+
 func abs(i64 a) i64 {
+    if(a==stddef.I64_MIN) {
+        return 9223372036854775807;
+    } 
     if(a > 0) {
         return a;
     }
@@ -19,7 +25,7 @@ func sqrt(f64 a) f64 {
 
 func floor_helper(f64 a) f64 {
     f64 res = a;
-    if(a<0 && a!=res) {
+    if(a<0) {
         return res-1;
     }
     return res;
@@ -53,8 +59,8 @@ func fshiftl(f64 a, i8 n) f64 {
     return a*(pow(2,n));
 }
 
-func println(auto s) void {
-    print(s);
-    print("\n");
+func println(string s) void {
+    //print(s);
+    //print("\n");
     return;
 }

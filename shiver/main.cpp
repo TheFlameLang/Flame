@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
         } else if(strcmp(argv[i], "verbose")==0) {
             verbose = true;
         } else if(strcmp(argv[i], "version")==0) {
-            std::cout << "Shiver 1.0 by Naharashu\n"
+            std::cout << "Shiver 1.1 by Naharashu\n"
             << "MIT License\n"
             << "Made with love\n";
         }
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
             f << "output = \"example\"\n";
             f << "cxx = \"g++\"\n";
             f << "cxxflags = \"-g -O1 -Wall\"\n";
-            f << "ld = \"ld\"\n";
+            f << "flameflags = \"-CXX\"\n";
             f << "src = [] # order will matter";
         } else {
             std::ofstream f("project.toml");
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
             std::cout << termcolor::blue << "Project version: " << termcolor::reset; std::getline(std::cin >> std::ws, temp);
             f << "version = \"" << temp << "\"\n";
             f << "\n";
-            std::cout << termcolor::blue << "Project license[MIT, Apache2, GPL2, GPL3]: " << termcolor::reset; std::getline(std::cin >> std::ws, temp);
+            std::cout << termcolor::blue << "Project license[MIT, Apache2, GPL2, GPL3, MPL2]: " << termcolor::reset; std::getline(std::cin >> std::ws, temp);
             f << "license = \"" << temp << "\"\n";
             std::cout << termcolor::blue << "Project author: " << termcolor::reset; std::getline(std::cin >> std::ws, temp);
             f << "author = \"" << temp << "\"\n";
@@ -77,6 +77,9 @@ int main(int argc, char* argv[]) {
             f << "cxxflags = \"" << temp << "\"\n";
             std::cout << termcolor::blue << "Output file name: " << termcolor::reset; std::getline(std::cin >> std::ws, temp);
             f << "output = \"" << temp << "\"\n";
+            
+            std::cout << termcolor::blue << "Flame flags: " << termcolor::reset; std::getline(std::cin >> std::ws, temp);
+            f << "flameflags = \"" << temp << "\"\n";
             std::cout << termcolor::green << "Done.\n" << termcolor::reset;
         }
         return 0;
@@ -124,6 +127,7 @@ int main(int argc, char* argv[]) {
             ver = "1.0.0";
         }
         std::cout << "Starting building " << name << '@' << ver << "...\n";
+        std::string flameflags = t["build"]["flameflags"].value_or("-CXX");
         auto start = std::chrono::high_resolution_clock::now();
         std::filesystem::create_directory("./build");
         for(auto &x : src) {
@@ -131,7 +135,7 @@ int main(int argc, char* argv[]) {
                 if(y.path().extension() == ".flame") {
                     const std::string n = y.path().stem();
                     const std::string name = y.path().filename();
-                    std::string cmd_ = "flame -CXX "; cmd_ += x + '/' + name; cmd_ += " -o ./build/" + n;
+                    std::string cmd_ = "flame " + flameflags + ' '; cmd_ += x + '/' + name; cmd_ += " -o ./build/" + n;
                     std::cout << "Compiling " << termcolor::bright_yellow << x << '/' <<  name << termcolor::reset
                     << " into C++...\n";
                     if(verbose) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd_ << '\n';

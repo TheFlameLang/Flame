@@ -197,7 +197,7 @@ std::string FuncCallNode::gen(generator &g)
         if (i + 1 < args.size())
             args_ += ", ";
     }
-    return id + '(' + args_ + ')' + want_get;
+    return id + '(' + args_ + ')';
 }
 
 std::string CondNode::gen(generator &g)
@@ -245,7 +245,7 @@ std::string FuncNode::gen(generator &g)
         code << "std::array<" << type_in_cpp(type) << ',' << std::to_string(size) << ">";
     }
     else code << type_in_cpp(type);
-    code << id.str_value;
+    code << id;
     code << '(';
     for (u64 i = 0; i < args.size(); i++)
     {
@@ -265,11 +265,11 @@ std::string ArgumentNode::gen(generator &g)
     std::string type_;
     if(isconst&&!ref) type_ += "const ";
     type_ += type_in_cpp(type);
-    if(ref) return "const " + type_ + "&" + id.str_value;
-    if(ismut) return type_ + "&" + id.str_value;
+    if(ref) return "const " + type_ + "&" + id;
+    if(ismut) return type_ + "&" + id;
     if(is_array) 
-        return "std::array<"+type_in_cpp(type)+','+std::to_string(size_if_array)+">"+id.str_value;
-    return type_ + id.str_value;
+        return "std::array<"+type_in_cpp(type)+','+std::to_string(size_if_array)+">"+id;
+    return type_ + id;
 }
 
 std::string ReturnNode::gen(generator &g)

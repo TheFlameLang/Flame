@@ -3,6 +3,7 @@
 #include "lexer.h"
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <cstdint>
 
@@ -56,7 +57,8 @@ class Node : public ASTNode {
 public:
   token tok;
   bool isptr;
-  explicit Node(const token& t, bool is_ptr=false) : tok(t), isptr(is_ptr) { kind = ast_type::JUSTNODE; line=tok.line; column=tok.column;};
+  bool is_ref_arg;
+  explicit Node(const token& t, bool is_ptr=false, bool _is_ref_arg=false) : tok(t), isptr(is_ptr), is_ref_arg(_is_ref_arg) { kind = ast_type::JUSTNODE; line=tok.line; column=tok.column;};
   std::string gen(generator &g) override;
   std::string gen_(generator &g) override;
 };
@@ -73,13 +75,13 @@ public:
 class ArgumentNode : public ASTNode {
 public:
   token type;
-  token id;
+  std::string id;
   bool is_array;
   u64 size_if_array=0;
   bool ref=false;
   bool isconst=false;
   bool ismut = false;
-  ArgumentNode(const token& t, const token& id_, bool isarr, u64 s, bool f=false, bool ic=false, bool ism=false) : type(t), id(id_), is_array(isarr), size_if_array(s), ref(f), isconst(ic), ismut(ism) {
+  ArgumentNode(const token& t, const std::string& id_, bool isarr, u64 s, bool f=false, bool ic=false, bool ism=false) : type(t), id(id_), is_array(isarr), size_if_array(s), ref(f), isconst(ic), ismut(ism) {
     kind = ast_type::FUNC_ARG;
   };
   void print() const override {}
@@ -188,9 +190,9 @@ class FuncCallNode : public ASTNode {
 public:
   std::string id;
   std::vector<astptr> args;
-  std::string want_get="";
+  std::string is_struct="";
   FuncCallNode(const std::string &id_, std::vector<astptr> args_,const std::string &wg)
-      : id(id_), args(std::move(args_)), want_get(wg) {
+      : id(id_), args(std::move(args_)), is_struct(wg) {
     kind = ast_type::FuncCall;
   };
 
@@ -228,13 +230,13 @@ public:
 
 class FuncNode : public ASTNode {
 public:
-  token id;
+  std::string id;
   token type;
   std::vector<astptr> args;
   astptr block;
   bool is_return_type_array=false;
   u64 size;
-  FuncNode(const token &id_, const token &type_, std::vector<astptr> args_,
+  FuncNode(const std::string &id_, const token &type_, std::vector<astptr> args_,
            astptr block_,const bool &irta, const u64 &s)
       : id(id_), type(type_), args(std::move(args_)), block(std::move(block_)), is_return_type_array(irta), size(s) {
     kind = ast_type::FUNC;

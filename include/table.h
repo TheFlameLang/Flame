@@ -19,6 +19,7 @@ using symbol = struct symbol {
     bool is_moved=false;
     bool is_mut_now=true;
     bool is_ref_arg=false;
+    std::string struct_ = "";
 };
 
 using fsymbol = struct fsymbol {
@@ -35,6 +36,8 @@ extern std::vector<std::string> notfreed_list;
 extern std::vector<std::unordered_map<std::string, symbol>> table;
 extern std::unordered_map<std::string, fsymbol> ftable;
 extern std::vector<std::string> loadedModules;
+
+#define CURRENT_SCOPE std::ranges::reverse_view(table)[0]
 
 token_value search_value(const std::string &name);
 

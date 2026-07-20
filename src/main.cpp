@@ -18,12 +18,18 @@ int main(int argc, char *argv[]) {
     if (strcmp(argv[1], "-h") == 0) {
       std::cout << "-o [filename] - output file name(executable), by default - out\n";
       std::cout << "-v - version of compiler\n";
-      std::cout << "-CXX - generate only C++ code\n";
       std::cout << "-lexer-debug - output lexed tokens\n";
-      std::cout << "-O2 - generate C++ with -O2\n";
+      std::cout << "======Compile flags======\n";
       std::cout << "-O0 - generate C++ with -O0\n";
-      std::cout << "-O3 - generate C++ with -O3, -funroll-loops and -march=native\n";
+      std::cout << "-O1 - generate C++ with -O1\n";
+      std::cout << "-O2 - generate C++ with -O2\n";
+      std::cout << "-O3 - generate C++ with -O3\n";
+      std::cout << "-O4 - generate C++ with -O3, -funroll-loops, -flto\n";
+      std::cout << "======Backend======\n";
+      std::cout << "-CXX - generate only C++ code\n";
       std::cout << "-C - use C backend(experimental)\n";
+      std::cout << "-t - dont generate binary\n";
+      std::cout << "-clang - use clang instead of gcc\n";
       return 0;
     }
   }
@@ -31,31 +37,40 @@ int main(int argc, char *argv[]) {
   bool compile_into_bin = true;
   std::string out_name = "out";
   bool lexer_output = false;
-  bool fast_code = false;
-  bool super_fast_code = false;
-  bool slow_code = false;
+
+  uint8_t opt_level = 0; // by default -O0
+  
   bool use_c=false;
   std::string filename = "";
+  bool clang_ = false;
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-CXX") == 0)
-      compile_into_bin = false;
+      use_c = false;
     else if (strcmp(argv[i], "-o") == 0) {
       out_name = argc > i + 1 ? argv[i + 1] : "out";
       i++;
     }
     else if (strcmp(argv[i], "-lexer-debug") == 0)
       lexer_output = true;
-    else if (strcmp(argv[i], "-O2") == 0)
-      fast_code = true;
     else if (strcmp(argv[i], "-O0") == 0)
-      slow_code = true;
+      opt_level = 0;
+    else if (strcmp(argv[i], "-O1") == 0)
+      opt_level = 1;
+    else if (strcmp(argv[i], "-O2") == 0)
+      opt_level = 2;
     else if (strcmp(argv[i], "-O3") == 0)
-      super_fast_code = true;
+      opt_level = 3;
+    else if (strcmp(argv[i], "-O4") == 0)
+      opt_level = 4;
+    else if (strcmp(argv[i], "-t") == 0)
+      compile_into_bin = false;
     else if (strcmp(argv[i], "-C")==0) {
       use_c = true;
       std::cerr << "Using experimental feature: C generator\n";
     }
+    else if (strcmp(argv[i], "-clang") == 0)
+      clang_ = true;
     else if(filename=="")
       filename = argv[i];
     else {
@@ -85,6 +100,7 @@ int main(int argc, char *argv[]) {
 
   std::vector<token> toks = lex.lex(code);
   parser parser_(toks, filename);
+  parser_.c_gen = use_c;
   u64 i = 0;
   if (lexer_output) {
     for (auto &tok : toks) {
@@ -103,6 +119,7 @@ int main(int argc, char *argv[]) {
   }
   if(parser_.errors) return 1;
   generator gen;
+  gen.c_gen = use_c;
   std::string code_;
 
   try {
@@ -112,7 +129,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  const std::string genname = out_name + "_flame.cpp";
+  const std::string genname = out_name + (use_c ? "_flame.c" : "_flame.cpp");
   std::ofstream out(genname, std::ios::out | std::ios::binary);
   if (!out.is_open()) {
     std::cerr << "E: Cannot open temp file to generate cpp code\n";
@@ -121,18 +138,19 @@ int main(int argc, char *argv[]) {
   out.write(code_.c_str(), (long)code_.size());
   out.close();
 
-  if(use_c) {
-    // lala
-  }
+  std::string compiler = use_c ? "gcc" : "g++";
+  if(clang_) compiler = use_c ? "clang" : "clang++";
 
   if (compile_into_bin) {
     std::string cleanup = "rm -f ";
     cleanup += out_name;
     system(cleanup.c_str());
     std::string output;
-    if(slow_code) output = "g++ -O0 " + genname +" -o " + out_name;
-    else if(super_fast_code) output = "g++ -O3 -funroll-loops -march=native " + genname +" -o " + out_name;
-    else output = !fast_code ? "g++ " + genname +" -o " + out_name : "g++ -O2 " + genname + " -o " + out_name;
+    if(opt_level==0) output = compiler + " -O0 " + genname +" -o " + out_name;
+    else if(opt_level==1) output = compiler + " -O1 " + genname +" -o " + out_name;
+    else if(opt_level==2) output = compiler + " -O2 " + genname +" -o " + out_name;
+    else if(opt_level==3) output = compiler + " -O3 " + genname +" -o " + out_name;
+    else if(opt_level==4) output = compiler + " -O3 -funroll-loops -flto " + genname +" -o " + out_name;
     system(output.c_str());
   }
   // std::cout << code_ << std::endl;

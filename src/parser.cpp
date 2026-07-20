@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <memory>
+#include <ranges>
 #include <sstream>
 #include <string>
 #include <unistd.h>
@@ -16,8 +17,12 @@
 
 astptr parser::parse_factor()
 {
-    if (peek().type == ID && peek(1).type == DOT)
+    if (peek().type == ID && peek(1).type == DOT) {
+        for(auto &x : loadedModules) {
+            if(peek().str_value==x) return parse_module_call(x);
+        }
         return parse_method();
+    }
     token tok = consume();
     if (tok.type == token_type::BYTE || tok.type == token_type::WORD || tok.type == token_type::INT ||
         tok.type == token_type::LONG || tok.type == token_type::UNSIGNED || tok.type == token_type::NULL_ ||
@@ -89,15 +94,19 @@ astptr parser::parse_factor()
                     ParserError("\tCannot pass temporarily value as mutable reference\n", c);
                 }
                 arg_i++;
-                args_.push_back(parse_or());
+                if(f && f->args[arg_i].is_ref_arg) {
+                    token tok = consume(ID);
+                    args_.push_back(std::make_unique<Node>(tok, search(tok.str_value).is_ptr, true));
+                }
+                else args_.push_back(parse_or());
                 if (peek().type == COMA)
                     consume();
             }
             consume(R_BRACKET);
             if (builtin)
                 return std::make_unique<FuncCallNode>(tok.str_value, std::move(args_), "");
-            else if (f->struct_ != ".")
-                return std::make_unique<FuncCallNode>(f->struct_ + tok.str_value, std::move(args_), "");
+            else if (f->struct_ != "")
+                return std::make_unique<FuncCallNode>(get_name(tok.str_value, f->struct_), std::move(args_), "");
             return std::make_unique<FuncCallNode>(tok.str_value, std::move(args_), "");
         }
         if (peek().type == L_SQ_BRACKET)
@@ -226,7 +235,8 @@ astptr parser::parse_factor()
                     token{.type = LONG, .value = var.value, .line = tok.line, .column = tok.column});
             }
         }
-        return std::make_unique<Node>(tok, search(tok.str_value).is_ptr);
+        tok.str_value = get_name(tok.str_value);
+        return std::make_unique<Node>(tok, search(tok.str_value).is_ptr, search(tok.str_value).is_ref_arg);
     }
     else if (tok.type == token_type::L_BRACKET)
     {
@@ -367,6 +377,7 @@ astptr parser::parse_use()
         lexer l;
         std::vector<token> toks = l.lex(code);
         parser p(toks, name);
+        p.c_gen = c_gen;
         p.is_module = true;
         std::vector<astptr> module;
         try
@@ -398,6 +409,7 @@ astptr parser::parse_use()
     lexer l;
     std::vector<token> toks = l.lex(code);
     parser p(toks, name);
+    p.c_gen = c_gen;
     p.is_module = true; // tells later to table that we parsing module
     std::vector<astptr> module;
     while (p.peek().type != token_type::EOF_)
@@ -537,6 +549,32 @@ astptr parser::parse_block(const token_type& expectedType, bool isptr_return)
     while (peek().type != R_BRACES && indx < src.size())
     {
         if (peek().type == RETURN) {
+            for(auto &x : std::ranges::reverse_view(table)[0]) {
+                if(x.second.type==STRING_TYPE) {
+                    token tok = token{.type=ID, .str_value = "&" + x.second.name};
+                    std::vector<astptr> args;
+                    args.emplace_back(std::make_unique<Node>(tok));
+                    stmts.emplace_back(
+                        std::make_unique<FuncCallNode>(
+                            "oxygen_string_destroy",
+                            std::move(args),
+                            ""
+                        )
+                    );
+                }
+                if(x.second.is_ptr) {
+                    token tok = token{.type=ID, .str_value = x.second.name};
+                    std::vector<astptr> args;
+                    args.emplace_back(std::make_unique<Node>(tok));
+                    stmts.emplace_back(
+                        std::make_unique<FuncCallNode>(
+                            "free",
+                            std::move(args),
+                            ""
+                        )
+                    );
+                }
+            }
             seen_return = true;
             if(expectedType !=NULL_) {
                 stmts.emplace_back(parse_return(expectedType, isptr_return));
@@ -588,7 +626,7 @@ astptr parser::parse_func_statement(const std::string &struct_)
         if (peek().type==REF)
         {
             consume(REF);
-            is_const = true;
+            if(!is_mut) is_const = true;
             is_ref = true;
         }
         token type = consume();
@@ -617,8 +655,8 @@ astptr parser::parse_func_statement(const std::string &struct_)
             throw ParseTimeError("\tUnknown type of argument '" + variant2string(arg_id.str_value) +
                                  "', expected i8..i64, u8..u64, bool, string, f32, f64, auto or Type[]\n");
         }
-        insert(arg_id.str_value, type.type, nothing{}, false, i);
-        astptr argument = std::make_unique<ArgumentNode>(type, arg_id, is_array, i, is_ref, is_const, is_const);
+        insert(arg_id.str_value, type.type, nothing{}, false, i, is_array, false, false, false, "", false, is_mut);
+        astptr argument = std::make_unique<ArgumentNode>(type, get_name(arg_id.str_value), is_array, i, is_ref, is_const, is_mut);
         args_.push_back(std::move(argument));
         finsert_arg(id.str_value,
                     symbol{.type = type.type,
@@ -665,7 +703,7 @@ astptr parser::parse_func_statement(const std::string &struct_)
     fsearch(id.str_value)->type=return_type.type;
     if(is_module) insert(struct_ + id.str_value, FUNC, nothing{}, false,1, false, false, false, false, filename);
     else insert(struct_ + id.str_value, FUNC, nothing{});
-    return std::make_unique<FuncNode>(id, return_type, std::move(args_), std::move(block), is_array, size);
+    return std::make_unique<FuncNode>(get_name(id.str_value, struct_), return_type, std::move(args_), std::move(block), is_array, size);
 }
 
 astptr parser::parse_if_statement()
@@ -763,6 +801,7 @@ astptr parser::parse_array(bool is_const, const std::string &struct_)
     token type = consume();
     consume(L_SQ_BRACKET);
     token size;
+    size.value = 0ULL;
     bool size_defined = false;
     if (peek().type != R_SQ_BRACKET)
     {
@@ -775,7 +814,7 @@ astptr parser::parse_array(bool is_const, const std::string &struct_)
     {
         consume(SEMI);
         if(is_module) insert(struct_ + id, type.type, true, is_const, std::get<u64>(size.value), true, false, false, false, filename);
-        else  insert(struct_ + id, type.type, true, is_const, std::get<u64>(size.value), true);
+        else  insert(struct_ + id, type.type, nothing{}, is_const, std::get<u64>(size.value), true);
         return std::make_unique<ArrayNode>(type,
                                            std::vector<astptr>{},
                                            id,
@@ -897,7 +936,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         consume(SEMI);
         if(is_module) insert(id.str_value, STRUCT, struct_id.str_value, false, 1, false, false, false, isptr, filename);
         else insert(id.str_value, STRUCT, struct_id.str_value, false, 1, false, false, false, isptr);
-        return std::make_unique<AssignmentNodeExpr>(STRUCT, id.str_value, astptr{}, is_const, struct_id.str_value, isptr);
+        return std::make_unique<AssignmentNodeExpr>(STRUCT, get_name(struct_+id.str_value), astptr{}, is_const, struct_id.str_value, isptr);
     }
     if (peek().type == VEC)
         return parse_vector(is_const, struct_ + '.');
@@ -923,13 +962,13 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         {
             if (peek().type == SEMI)
                 consume(SEMI);
-            return std::make_unique<IncDecVarNode>(0, struct_ + id.str_value);
+            return std::make_unique<IncDecVarNode>(0, get_name(struct_+id.str_value));
         }
         else
         {
             if (peek().type == SEMI)
                 consume(SEMI);
-            return std::make_unique<IncDecVarNode>(1, struct_ + id.str_value);
+            return std::make_unique<IncDecVarNode>(1, get_name(struct_+id.str_value));
         }
     }
     if (is_it_type(peek()) && peek(1).type == L_SQ_BRACKET)
@@ -981,7 +1020,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
             astptr value = parse_or();
             if (peek().type == SEMI)
                 consume(SEMI);
-            return std::make_unique<ReAssignmentNodeExpr>(op.type, struct_ + type.str_value, std::move(value), is_const);
+            return std::make_unique<ReAssignmentNodeExpr>(op.type, get_name(type.str_value, struct_), std::move(value), is_const);
         }
         if (!exist(variant2string(type.str_value)) && !is_struct(type.str_value))
         {
@@ -995,6 +1034,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
             parser::column = type.column;
             throw ParseTimeError("\tVariable '" + variant2string(type.str_value) + "' is constant'\n");
         }
+        
         std::string mov_from = "";
         const u64 rollback = indx;
         while(peek().type!=SEMI) {
@@ -1022,7 +1062,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         }
         const bool ismov = mov_from!="";
         consume(SEMI);
-        return std::make_unique<AssignmentNode>(type.str_value, std::move(value), is_const, search(type.str_value).is_ptr, ismov);
+        return std::make_unique<AssignmentNode>(get_name(struct_+type.str_value), std::move(value), is_const, search(type.str_value).is_ptr, ismov);
     }
     if (!is_it_type(type) || is_struct(type.str_value))
     {
@@ -1065,7 +1105,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
             consume(SEMI);
             if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true, filename);
             else insert(struct_ + id.str_value, type.type, nothing{}, is_const, 1, false, false,false,true);
-            return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, astptr{}, is_const, "", true);
+            return std::make_unique<AssignmentNodeExpr>(type.type, get_name(struct_+id.str_value), astptr{}, is_const, "", true);
         }
         consume(EQ);
         std::string mov_from = "";
@@ -1105,7 +1145,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         const bool ismov = mov_from!="";
         if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, false, false,false,true, filename);
         else insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, false, false,false,true, "");
-        return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, std::move(value), is_const, "", true, ismov);
+        return std::make_unique<AssignmentNodeExpr>(type.type, get_name(struct_+id.str_value), std::move(value), is_const, "", true, ismov);
     }
     token id = consume(token_type::ID);
     std::string id_value = id.str_value;
@@ -1138,7 +1178,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         consume();
         if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, false, false, false, false, false, filename);
         else insert(struct_ + id.str_value, type.type, nothing{}, is_const,1, false, false, false, false);
-        return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, astptr{}, is_const);
+        return std::make_unique<AssignmentNodeExpr>(type.type, get_name(struct_+id.str_value), astptr{}, is_const);
     }
     consume(token_type::EQ);
     u64 size = 0;
@@ -1161,7 +1201,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
     if(is_module&&!comptime) insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, false, false, false, false, filename);
     else insert(struct_ + id.str_value, type.type, nothing{}, is_const, size,  false, comptime, false, false);
     consume(SEMI);
-    return std::make_unique<AssignmentNodeExpr>(type.type, id.str_value, std::move(value), is_const);
+    return std::make_unique<AssignmentNodeExpr>(type.type, get_name(struct_+id.str_value), std::move(value), is_const);
 }
 
 
@@ -1175,6 +1215,7 @@ astptr parser::parse_method()
             return parse_module_call(parent.str_value+".flame");
         }
     }
+
 
     if (!exist(parent.str_value))
     {
@@ -1253,7 +1294,6 @@ astptr parser::parse_method()
                                              "'\n", c);
                     }
                     if(f->args[arg_i].is_ref_arg) {
-                        bool cont = false; // is contains
                         for(auto &x : mut_vars) {
                             if(s->name==x.name) {
                                 ParserError("\tVariable can only have one mutable reference\n", c);
@@ -1326,6 +1366,7 @@ astptr parser::parse_module_call(const std::string &name) {
     size_t s = name.find_last_of('.');
     std::string cname = (s == std::string::npos) ? name : name.substr(0, s);
 
+    bool consume_semi = true;
     while (peek().type == DOT)
     {
         consume(DOT);
@@ -1379,7 +1420,7 @@ astptr parser::parse_module_call(const std::string &name) {
                     consume();
             }
             consume(R_BRACKET);
-            children.emplace_back(std::make_unique<FuncCallNode>(cname+"::"+child.str_value, std::move(args_), ""));
+            children.emplace_back(std::make_unique<FuncCallNode>(get_name(child.str_value, cname), std::move(args_), ""));
         }
         else
         {
@@ -1392,7 +1433,7 @@ astptr parser::parse_module_call(const std::string &name) {
                 if(!s.is_array&&s.type!=STRING_TYPE) {
                     ParserError("\tTrying access variable '"+s.name+"' as array\n", peek());
                 }
-                child.str_value = cname+"::"+child.str_value;
+                child.str_value = search_module(child.str_value, name).name;
                 children.emplace_back(std::make_unique<ArrayAccessNode>(child, std::move(index), s.is_vector));
             }
             else
@@ -1406,17 +1447,20 @@ astptr parser::parse_module_call(const std::string &name) {
                     }
                     consume(EQ);
                     astptr value = parse_or();
-                    children.emplace_back(std::make_unique<AssignmentNode>(cname+"::"+child.str_value, std::move(value)));
+                    children.emplace_back(std::make_unique<AssignmentNode>(get_name(child.str_value, cname), std::move(value)));
                 }
                 else
                 {   
-                    child.str_value = cname+"::"+child.str_value;
+                    auto s = search_module(child.str_value, name);
+
+                    child.str_value = get_name(s.name, name, false);
                     children.emplace_back(std::make_unique<Node>(child)); // access -> p.x
+                    consume_semi = false;
                 }
             }
         }
     }
-    if (peek().type == SEMI)
+    if (peek().type == SEMI&&consume_semi)
         consume(SEMI);
     return std::make_unique<ModuleCallNode>(std::move(children), isptrs, name);
 }

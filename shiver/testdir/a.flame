@@ -23,5 +23,6 @@ func main() i32 {
 	string s = "hi";
 	i32 a = 10;
 	a ^=20;
+	a = stdlib.PI;
 	return a;
 }

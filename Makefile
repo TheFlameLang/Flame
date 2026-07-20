@@ -1,6 +1,6 @@
 CXX = g++
 CXX_FLAGS = -std=c++20 -g -O1 -Wall -Wextra
-CXX_OBJ = build/lexer.o build/parser.o build/main.o build/ast.o build/table.o
+CXX_OBJ = build/lexer.o build/parser.o build/main.o build/ast.o build/table.o build/ast_c.o
 HOME_ = $(HOME)
 
 all: main
@@ -15,9 +15,10 @@ build/%.o: src/%.cpp
 	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 install:
-	mv flame $(HOME_)/.local/bin/flame
+	cp flame $(HOME_)/.local/bin/flame
 	mkdir -p $(HOME_)/.local/bin/flame_
 	cp -r stdlib/. $(HOME_)/.local/bin/flame_/
+	sudo cp include/runtime/oxygen_runtime.h /usr/include/oxygen_runtime.h
 
 uninstall:
 	rm -f $(HOME_)/.local/bin/flame
