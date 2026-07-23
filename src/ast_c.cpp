@@ -2,7 +2,6 @@
 #include "../include/common.h"
 #include "../include/generator.h"
 #include "../include/table.h"
-#include <map>
 #include <memory>
 #include <sstream>
 
@@ -18,6 +17,7 @@ std::string Node::gen_(generator &g)
         if(var.comptime&&(var.type==FLOAT_TYPE)) return std::to_string(variant2float(var.value));
         if(var.comptime&&(var.type==DOUBLE_TYPE)) return std::to_string(variant2double(var.value));
         if(isptr||is_ref_arg) return "*" + tok.str_value;
+        if(struct_!="") return "self->"+tok.str_value;
         else return tok.str_value;
     }
     return variant2value(tok);
@@ -99,6 +99,8 @@ std::string BinaryNode::gen_(generator &g)
 std::string AssignmentNode::gen_(generator &g)
 {
     std::string value = val ? g.gencode(val) : "";
+    if(struct_!=""&&!isptr) id = struct_ + '.' + id;
+    if(struct_!=""&&isptr) id = struct_ + "->" + id;
     if(ismoving) {
         if(isptr) return id + " = std::move(" + value.substr(1) + ")";
     }
@@ -149,9 +151,16 @@ std::string AssignmentNodeExpr::gen_(generator &g)
             }
             else return type + "* " + id + " = malloc(sizeof(" + type + "));\n" + g.pad() + "*" + id + " = " + g.gencode(val);
         }
+        if(struct_id!="") {
+            std::string ret = type + "* " + id + " = malloc(sizeof(" + type + "));\n";
+            ret += g.pad() + "*" + id + " = " + type + "_flame_def_init()";
+            return ret;
+        }
         else return type +  "* " + id;
     }
-    if(struct_id!="") return type + " " + id + " = " + type + "_flame_def_init()";
+    if(struct_id!="") {
+        return type + " " + id + " = " + type + "_flame_def_init()";
+    }
     if(type_==STRING_TYPE) {
         std::string a = const_ + type + ' ' + id + ";\n";
         a += "    oxygen_new_string( &" + id + ", " + (val ?  g.gencode(val) : "") + ")";
@@ -174,19 +183,9 @@ std::string FuncCallNode::gen_(generator &g)
     std::string args_;
     if (id == "print")
     {
-        g.line = line;
-        g.column = column;
-        throw TranspileTimeError("\tprint() currently not supported in C generator");
-        args_ = "print(";
-        for (auto &x : args)
-        {
-            args_ += g.gencode(args.at(0));
-            args_ += "";
-        }
-        args_.pop_back();
-        args_.pop_back();
-        args_.pop_back();
-        args_.pop_back();
+        args_ = "printf(\"%s\", ";
+        args_ += g.gencode(args.at(0));
+        args_ += ")";
         return args_;
     }
     if (id == "input")
@@ -305,7 +304,7 @@ std::string IfNode::gen_(generator &g)
     std::string code;
     if (cond)
     {
-        code += (type == IF ? "if(" : "else if(") + g.gencode(cond) + ")" + g.gencode(block);
+        code += (type == IF ? "if" : "else if") + g.gencode(cond) + "" + g.gencode(block);
     }
     else
         code += "else " + g.gencode(block);
@@ -406,6 +405,10 @@ std::string ReAssignmentNodeExpr::gen_(generator &g)
     default:
         break;
     }
+    if(struct_!="") {
+        if(isptr) return struct_+"->"+id+op+g.gencode(val);
+        return struct_+"."+id+op+g.gencode(val);
+    }
     return id + op + g.gencode(val);
 }
 
@@ -445,7 +448,7 @@ std::string ArrayNode::gen_(generator &g)
     }
     std::string type_ = type_in_c(type);
     if(is_init) {
-        return type_ + id + '[' + std::to_string(size)+">" + "] =" + g.gencode(values.at(0));
+        return type_ + id + '[' + std::to_string(size) + "] =" + g.gencode(values.at(0));
     }
     std::string values_ = "{";
     if (!values.empty())
@@ -460,7 +463,7 @@ std::string ArrayNode::gen_(generator &g)
     }
     else
     {
-        return type_ + id + '[' + std::to_string(size)+">" + "]";
+        return type_ + id + '[' + std::to_string(size) + "]";
     }
     return type_ + id + '[' + std::to_string(size) + "] = " + values_;
     //return "std::array<"+type_+','+std::to_string(size)+">"+id;
@@ -479,11 +482,13 @@ std::string ArrayAccessNode::gen_(generator &g)
 {
     if(isptr) return "(*" + id.str_value + ")[" + g.gencode(index) + "]";
     if(is_vector) return id.str_value + ".at(" + g.gencode(index) + ")";
+    if(isstr) return "oxygen_string_get(&"+id.str_value+", "+g.gencode(index)+")";
     return id.str_value + "[" + g.gencode(index) + "]";
 }
 
 std::string ArrayChangeNode::gen_(generator &g)
 {
+    if(isstr) return "oxygen_string_set(&"+id.str_value+", "+g.gencode(index)+", "+g.gencode(value)+")";
     return id.str_value + "[" + g.gencode(index) + "] = " + g.gencode(value);
 }
 
@@ -499,9 +504,8 @@ std::string ModuleNode::gen_(generator &g)
 }
 
 std::string MethodNode::gen_(generator &g) {
-    std::string code = parent;
-    unsigned long i = 0;
-    std::string accessor = isptr ? "->" : ".";
+    std::string code = struct_;
+    //std::string accessor = isptr ? "->" : ".";
     for(auto &x : children) {
         if(type==VEC) {
             if(x->kind==ast_type::FuncCall) {
@@ -519,9 +523,19 @@ std::string MethodNode::gen_(generator &g) {
                 }
             }
         }
-        code += accessor + g.gencode(x);
-        accessor = (i < isptrs.size() && isptrs[i]) ? "->" : ".";
-        i++;
+        if(x->kind == ast_type::FuncCall) {
+            auto n = dynamic_cast<FuncCallNode*>(x.get());
+            if(!isptr) code += "_" + n->id + "(&" + parent + ", ";
+            else code += "_" + n->id + "(" + parent + ", ";
+            for(auto &x : n->args) {
+                code += g.gencode(x) + ", ";
+            }
+            code.pop_back();
+            code.pop_back();
+            code += ")";
+            return code;
+        }
+        code += "_" + g.gencode(x);
     }
     return code;
 }
@@ -531,6 +545,20 @@ std::string ModuleCallNode::gen_(generator &g) {
     unsigned long i = 0;
     std::string accessor = "";
     for(auto &x : children) {
+        if(x->kind==ast_type::FuncCall) {
+            auto n = static_cast<FuncCallNode*>(x.get());
+            if(n->id=="fmt") {
+                std::string res;
+                for (u64 i = 1; i < n->args.size(); i++)
+                {
+                    res += g.gencode(n->args[i]);
+                    if (i + 1 < n->args.size())
+                        res += ", ";
+                }
+                code += "oxygen_fmt(" + g.gencode(n->args[0]) + ", \"" + n->is_struct + '\"' + ", " + res + ')';
+                return code;
+            }
+        }
         code += accessor + g.gencode(x);
         accessor = (i < isptrs.size() && isptrs[i]) ? "->" : ".";
         i++;
@@ -552,8 +580,28 @@ std::string StructNode::gen_(generator &g) {
         code << g.pad();
         if(x->kind==ast_type::DEFINEVAR) {
             AssignmentNodeExpr* n = dynamic_cast<AssignmentNodeExpr*>(x.get());
-            code << type_in_c(token{.type=n->type_}) << n->id << ";\n";
+            code << type_in_c(token{.type=n->type_, .value=nothing{}, .line=0, .column=0, .str_value=""}) << n->id << ";\n";
             default_init  << "    Temp." << n->id << " = " << g.gencode(n->val) << ";\n";
+        } else if(x->kind==ast_type::FUNC) {
+            auto n = dynamic_cast<FuncNode*>(x.get());
+            std::ostringstream code_;
+            if(n->is_return_type_array) {
+                code_ << "std::array<" << type_in_c(n->type) << ',' << std::to_string(n->size) << ">";
+            }
+            else code_ << type_in_c(n->type);
+            code_ << n->id;
+            code_ << "("+id+"* self";
+            for (u64 i = 0; i < n->args.size(); i++)
+            {
+                if (i + 1 < n->args.size())
+                    code_ << ", ";
+                code_ << g.gencode(n->args[i]);
+            }
+            code_ << ") ";
+            code_ << g.gencode(n->block);
+            code_ << '\n';
+            funcs << code_.str();
+
         } else {
             code << g.gencode(x);
             code << ";\n";
@@ -562,6 +610,6 @@ std::string StructNode::gen_(generator &g) {
     g.indent--;
     code << g.pad() + "} " << id << ';';
     default_init << "    return Temp;\n}";
-    code << '\n' << default_init.str();
+    code << '\n' << default_init.str() << "\n" << funcs.str();
     return code.str();
 }

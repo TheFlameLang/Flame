@@ -58,7 +58,8 @@ public:
   token tok;
   bool isptr;
   bool is_ref_arg;
-  explicit Node(const token& t, bool is_ptr=false, bool _is_ref_arg=false) : tok(t), isptr(is_ptr), is_ref_arg(_is_ref_arg) { kind = ast_type::JUSTNODE; line=tok.line; column=tok.column;};
+  std::string struct_;
+  explicit Node(const token& t, bool is_ptr=false, bool _is_ref_arg=false, const std::string& s="") : tok(t), isptr(is_ptr), is_ref_arg(_is_ref_arg), struct_(s) { kind = ast_type::JUSTNODE; line=tok.line; column=tok.column;};
   std::string gen(generator &g) override;
   std::string gen_(generator &g) override;
 };
@@ -144,8 +145,9 @@ public:
   bool is_const;
   bool isptr;
   bool ismoving=false;
-  AssignmentNode(const std::string &id_, astptr val_, bool isconst=false, bool isptr_=false, bool ismov=false)
-      : id(id_), val(std::move(val_)), is_const(isconst), isptr(isptr_), ismoving(ismov) {
+  std::string struct_="";
+  AssignmentNode(const std::string &id_, astptr val_, bool isconst=false, bool isptr_=false, bool ismov=false, const std::string& s="")
+      : id(id_), val(std::move(val_)), is_const(isconst), isptr(isptr_), ismoving(ismov), struct_(s) {
     kind = ast_type::ASSIGN;
   };
 
@@ -177,8 +179,10 @@ public:
   std::string id;
   astptr val;
   bool is_const;
-  ReAssignmentNodeExpr(const token_type &t_, const std::string &id_, astptr val_, bool isconst=false)
-      : type_(t_), id(id_), val(std::move(val_)), is_const(isconst) {
+  std::string struct_="";
+  bool isptr=false;
+  ReAssignmentNodeExpr(const token_type &t_, const std::string &id_, astptr val_, bool isconst=false, const std::string& s="", bool isptr_=false)
+      : type_(t_), id(id_), val(std::move(val_)), is_const(isconst), struct_(s), isptr(isptr_) {
     kind = ast_type::REASSIGNVAR;
   };
 
@@ -335,7 +339,8 @@ public:
   astptr index;
   bool is_vector=false;
   bool isptr = false;
-  ArrayAccessNode(const token &id_, astptr i_, bool is_v=false, bool isptr_=false) : id(id_), index(std::move(i_)), is_vector(is_v), isptr(isptr_) {
+  bool isstr = false;
+  ArrayAccessNode(const token &id_, astptr i_, bool is_v=false, bool isptr_=false, bool isstring=false) : id(id_), index(std::move(i_)), is_vector(is_v), isptr(isptr_), isstr(isstring) {
     kind = ast_type::ARRAY_ACCESS;
   }
   std::string gen(generator &g) override;
@@ -348,7 +353,8 @@ public:
   astptr index;
   astptr value;
   bool is_vector=false;
-  ArrayChangeNode(const token &id_, astptr i_, astptr v, bool is_v=false) : id(id_), index(std::move(i_)), value(std::move(v)), is_vector(is_v) {
+  bool isstr = false;
+  ArrayChangeNode(const token &id_, astptr i_, astptr v, bool is_v=false, bool isstring=false) : id(id_), index(std::move(i_)), value(std::move(v)), is_vector(is_v), isstr(isstring) {
     kind = ast_type::ARRAY_CHANGE;
   }
   std::string gen(generator &g) override;
@@ -374,7 +380,8 @@ class MethodNode : public ASTNode {
   token_type type;
   std::string parent;
   bool isptr;
-  MethodNode(std::vector<astptr> m, const std::vector<bool> &ptrs, const std::string &name, const token_type &t, bool isp=false) : children(std::move(m)), isptrs(ptrs), type(t), parent(name), isptr(isp) { //kind = ast_type::MODULE;
+  std::string struct_;
+  MethodNode(std::vector<astptr> m, const std::vector<bool> &ptrs, const std::string &name, const token_type &t, bool isp=false, const std::string& t_="") : children(std::move(m)), isptrs(ptrs), type(t), parent(name), isptr(isp), struct_(t_) { //kind = ast_type::MODULE;
      }
 
   void print() const override {}

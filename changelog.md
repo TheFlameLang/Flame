@@ -26,13 +26,15 @@
 * build time
 
 
-### Flame 0.10.0(17.07.26):
+### Flame 0.10.0(21.07.26):
 
 * mutable and not mutable references(**function arguments only**)
 * new style of warnings
 * now only one mutable refernce can be defined for var
 * switching to C backend
 * -t flag for only transpilation
+* stddef library
+* std.fmt()
 
 * **BUGFIXES**:
     

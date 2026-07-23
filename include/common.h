@@ -24,8 +24,8 @@ inline double variant2float(const token_value &val) {
   return std::get<float>(val);
 }
 
-inline std::string variant2char(const token_value &val) {
-  return std::to_string((std::get<char>(val)));
+inline char variant2char(const token_value &val) {
+  return (std::get<char>(val));
 }
 
 inline double variant2double(const token_value &val) {
@@ -273,7 +273,10 @@ inline std::string variant2value(token tok) {
   if (tok.type == STRING)
     return "\"" + variant2string(tok.value) + "\"";
   if (tok.type == CHAR) {
-    return "\'" + variant2char(tok.value) + "\'";
+    std::string res = "\'";
+    res += variant2char(tok.value);
+    res += "\'";
+    return res;
   }
   if (tok.type == TRUE || tok.type == FALSE)
     return std::to_string(variant2bool(tok.value));

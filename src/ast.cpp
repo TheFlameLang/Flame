@@ -139,15 +139,16 @@ std::string AssignmentNodeExpr::gen(generator &g)
         type += "uint64_t";
     if (type_ == AUTO_TYPE)
         type += "auto";
-    type += struct_id;
+    //type += struct_id;
     if(is_ptr) {
         if(val) {
             if(is_mov) return "std::unique_ptr<" + type +  "> " + id + "=" + "std::move(" + g.gencode(val).substr(1) + ")";
             else return "std::unique_ptr<" + type +  "> " + id + "=" + "std::make_unique<" + type + ">(" + g.gencode(val) + ")";
         }
+        else if(type=="") return "std::unique_ptr<" + struct_id +  "> " + id + "=" + " std::make_unique<" + struct_id + ">()";
         else return "std::unique_ptr<" + type +  "> " + id + "=" + " std::make_unique<" + type + ">()";
     }
-    if(struct_id!="") return type + " " + id;
+    if(struct_id!=""&&type=="") return struct_id + " " + id;
     return const_ + type + ' ' + id + (val ? "=" + g.gencode(val) : "=" + nullval);
 }
 
@@ -283,7 +284,7 @@ std::string IfNode::gen(generator &g)
     std::string code;
     if (cond)
     {
-        code += (type == IF ? "if(" : "else if(") + g.gencode(cond) + ")" + g.gencode(block);
+        code += (type == IF ? "if" : "else if") + g.gencode(cond) + "" + g.gencode(block);
     }
     else
         code += "else " + g.gencode(block);

@@ -18,7 +18,7 @@ std::vector<token> lexer::lex(std::string src) {
   std::vector<token> lexed;
   size_t i = 0;
   l = 1;
-  u64 col = 1;
+  u64 col = 0;
   while (i < src.size()) {
     char c = src[i];
     col++;
@@ -61,6 +61,7 @@ std::vector<token> lexer::lex(std::string src) {
             col=0;
           }
           i++;
+          col++;
         }
         i+=2;
         continue;
@@ -187,6 +188,7 @@ std::vector<token> lexer::lex(std::string src) {
              (is_letter(src[i]) || is_int(src[i]) || src[i] == '_')) {
         id.push_back(src[i]);
         i++;
+        col++;
       }
       if (id == "if")
         lexed.push_back(create_token(IF, nothing{}, l, col));
@@ -297,6 +299,7 @@ std::vector<token> lexer::lex(std::string src) {
           }
         } else {*/
           str += src[i];
+          col++;
         //}
         i++;
       }
@@ -312,6 +315,7 @@ std::vector<token> lexer::lex(std::string src) {
       std::string number;
       while ((i < src.size() && is_int(src[i])) || src[i] == '.') {
         number += src[i++];
+        col++;
       }
       char *endptr;
       if (number.find('.') != std::string::npos) {

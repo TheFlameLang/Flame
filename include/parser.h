@@ -50,6 +50,7 @@ class parser {
         filename = f;
     }
     std::string get_name(const std::string& varname, const std::string& struct_n="", bool module=true ) {
+        if(!c_gen) return varname;
         //std::string fname = replaceChar(filename, '.', '_');
         if(is_module&&module) {
             std::string temp = filename + "_" + struct_n + "_" + varname;
@@ -113,6 +114,7 @@ class parser {
     void parse_comptime();
     astptr parse_method();
     astptr parse_module_call(const std::string &name="");
+    astptr parse_std(const std::string& name="");
     astptr parse_struct();
     astptr parse_assignment(bool is_const=false, bool comptime=false, const std::string &struct_="");
 
@@ -147,13 +149,18 @@ class parser {
     }
 
     /**
-     * @brief Skip to the nearest ; or }
+     * @brief Skip to the nearest ; or } or newline
      */
     void sync() {
+        u64 line = peek().line;
         while(true) {
-            token_type c = peek().type;
-            if(c==EOF_) return;
-            if(c==SEMI||c==R_BRACES) {
+            token c = peek();
+            if(line!=c.line) {
+                consume();
+                return;
+            }
+            if(c.type==EOF_) return;
+            if(c.type==SEMI||c.type==R_BRACES) {
                 consume();
                 return;
             }

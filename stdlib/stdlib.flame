@@ -1,6 +1,7 @@
 // Stdlib v1.4 by Naharashu (20.07.26)
-// MIT License
+// includes useful functions
 
+use stddef;
 use stddef;
 
 func abs(i64 a) i64 {

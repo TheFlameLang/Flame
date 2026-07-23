@@ -38,6 +38,7 @@ extern std::unordered_map<std::string, fsymbol> ftable;
 extern std::vector<std::string> loadedModules;
 
 #define CURRENT_SCOPE std::ranges::reverse_view(table)[0]
+#define LAST_SCOPE_N (table.size()-1)
 
 token_value search_value(const std::string &name);
 
@@ -56,14 +57,12 @@ token_type search_type(const std::string &name);
  * @param name name of object
  * @param lvl scope level
  * @return token_type returns type of object, EOF_ if not found
- * @deprecated Use search(name) instead, its automaticaly will give first found
  */
-[[deprecated("Use search(name) instead, its automaticaly will give first found")]]
 token_type search_type_scope(const std::string &name, unsigned int lvl);
 
 
-void insert(const std::string &name,token_type type, token_value val, bool is_const=false, u64 size=1, bool is_array=false, bool comptime=false, bool is_vector=false, bool isptr=false, const std::string &modname="", bool ismov=false, bool isref=false);
-void insert_top(const std::string &name,token_type type, token_value val,bool is_const=false, u64 size=1, bool is_array=false, bool comptime=false, bool is_vector=false, bool isptr=false, const std::string modname="");
+void insert(const std::string &name,token_type type, token_value val, bool is_const=false, u64 size=1, bool is_array=false, bool comptime=false, bool is_vector=false, bool isptr=false, const std::string &modname="", bool ismov=false, bool isref=false, const std::string& struct_="");
+void insert_top(const std::string &name,token_type type, token_value val,bool is_const=false, u64 size=1, bool is_array=false, bool comptime=false, bool is_vector=false, bool isptr=false);
 
 bool exist(const std::string &name);
 
@@ -73,9 +72,7 @@ bool exist(const std::string &name);
  * @param name name of object
  * @param lvl scope level
  * @return bool returns true if exist, else false
- * @deprecated Use exist(name) instead
  */
-[[deprecated("Use exist(name) instead, its automaticaly will give first found")]]
 bool exist_in_scope(const std::string &name, unsigned int lvl);
 
 inline fsymbol* fsearch(const std::string &name) {
@@ -95,21 +92,25 @@ inline void finsert(const std::string &name, const token_type &type, const std::
     ftable.insert_or_assign(name, fsymbol{type, args, false, stru});
 }
 
+
 inline fsymbol* fsearch_module(const std::string &name,const std::string &modname) {
     auto it = ftable.find(name);
     if (it != ftable.end()) {
+        if(it->second.module_name.c_str()!=modname) return nullptr;
         return &it->second;
     }
     return nullptr;
 }
 
 inline bool fexist_module(const std::string &name, const std::string &modname) {
-    if(fsearch(name)->type==EOF_) return false;
+    fsymbol* f = fsearch(name);
+    if(!f) return false;
+    if(f->type==EOF_||f->module_name!=modname) return false;
     return true;
 }
 
 inline void finsert_module(const std::string &name, const token_type &type, const std::vector<symbol> &args, const std::string &stru="", const std::string &modname="") {
-    ftable.insert_or_assign(name, fsymbol{type, args, false, stru});
+    ftable.insert_or_assign(name, fsymbol{type, args, false, stru, modname});
 }
 
 inline void finsert_arg(const std::string &name, const symbol &arg) {

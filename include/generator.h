@@ -70,6 +70,18 @@ public:
     }
     if(header.find("<oxygen_runtime.h>")==std::string::npos) {
       header += "#include <oxygen_runtime.h>\n";
+      std::ostringstream check;
+      header += "#define OXYGEN_REQ_MAJ_V 0\n";
+      header += "#define OXYGEN_REQ_MIN_V 2\n";
+      header += "#define OXYGEN_REQ_PAT_V 0\n";
+      check << "#if OXYGEN_MAJOR_VER < OXYGEN_REQ_MAJ_V\n"
+      << "    #error \"Using very out-dated version of Oxygen Runtime!\"\n"
+      << "#elif OXYGEN_MINOR_VER < OXYGEN_REQ_MIN_V\n"
+      << "    #warning \"Using old version of Oxygen Runtime!\"\n"
+      << "#elif OXYGEN_PATCH_VER < OXYGEN_REQ_PAT_V\n"
+      << "    #warning \"Using older release of Oxygen Runtime!\"\n"
+      << "#endif\n";
+      header += check.str();
     }
   }
 

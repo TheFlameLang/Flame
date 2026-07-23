@@ -55,12 +55,12 @@ token_type search_type_scope(const std::string &name, unsigned int lvl) {
     return EOF_;
 }
 
-void insert(const std::string &name,token_type type, token_value val, bool is_const, u64 size, bool is_array, bool comptime, bool is_vector, bool isptr, const std::string &modname, bool ismov, bool isref) {
+void insert(const std::string &name,token_type type, token_value val, bool is_const, u64 size, bool is_array, bool comptime, bool is_vector, bool isptr, const std::string &modname, bool ismov, bool isref, const std::string& struct_) {
     if(table.empty()) [[unlikely]] return;
-    table[table.size()-1].insert_or_assign(name, symbol{type, std::move(val), is_const, size, is_array, comptime,name, is_vector, isptr, modname, ismov, !isref,  isref});
+    table[table.size()-1].insert_or_assign(name, symbol{type, std::move(val), is_const, size, is_array, comptime,name, is_vector, isptr, modname, ismov, !isref,  isref, struct_});
 }
 
-void insert_top(const std::string &name,token_type type,token_value val, bool is_const, u64 size,bool is_array, bool comptime, bool is_vector, bool isptr, const std::string modname) {
+void insert_top(const std::string &name,token_type type,token_value val, bool is_const, u64 size,bool is_array, bool comptime, bool is_vector, bool isptr) {
     if(table.empty()) return;
     table[0].insert_or_assign(name, symbol{type, std::move(val), is_const, size, is_array, comptime,name, is_vector, isptr});
 }

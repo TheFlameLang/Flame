@@ -97,7 +97,7 @@ point point_flame_def_init() {
 void point_print_cord(point* self)  {
         printf("%s", oxygen_fmt("x is {}, y is {}\n", "ii", self->x, self->y));
     }
-void point_inc(point* selfint32_t x_, int32_t y_)  {
+void point_inc(point* self, int32_t x_int32_t y_)  {
         x += x_;
         y += y_;
     }

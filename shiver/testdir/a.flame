@@ -1,12 +1,13 @@
 use stdlib;
 //use strings;
-use std;
+//use std;
 
 struct point {
 	i32 x=1;
 	i32 y=1;
 	func print_cord() void {
-		print(std.fmt("x is {}, y is {}\n", x, y));
+		// print(std.fmt("x is {}, y is {}\n", x, y)); this C testing
+		print("x is", x, " y is ", y);
 	} 
 	func inc(i32 x_, i32 y_) void {
 		x += x_;
@@ -15,16 +16,17 @@ struct point {
 };
 
 
-func test(mut ref f32 a) f32 {
+func test_(mut ref f32 a) f32 {
 	return a;
 }
 
 
 
 func main() i32 {
-	print(std.fmt("{} is 1\n", true));
+	//print(std.fmt("{} is 1\n", true));
 	point* p;
 	p.inc(2,2);
 	p.print_cord();
+	//stddef.test = 3;
 	return 0;
 }
