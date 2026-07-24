@@ -34,6 +34,8 @@ Flame is programming language that transpiles into C++(switch to C soon :D)
 
 # Installation 
 
+Requirements: gcc 10 or clang 10(-std=c++20) and Linux x64
+
 Read step by step(recommended):
 
 https://flame-lang.mintlify.site/Installation
@@ -44,9 +46,10 @@ https://github.com/TheFlameLang/Flame/releases/tag/0.10.0-dev3-hotfix (Binary on
 
 # Testing
 
-1. Create file
+1. Verefy if flame is installed by `flame -v` 
+2. Create file
 
-2. Write simple code:
+3. Write simple code:
 
 ```
 func add(i32 x, i32 y) i32 {
@@ -59,4 +62,6 @@ func main() i32 {
 }
 ```
 
-3. run with `flame -CXX myfile.flame -o test && test`
+4. run with `flame -CXX myfile.flame -o test && test`
+
+
