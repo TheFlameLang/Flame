@@ -29,3 +29,14 @@ Flame is programming language that transpiles into C++
    comptime i32 y = 32+x;
    ```
 3. Small standard library
+4. Slow backend(currently switch to C)
+
+# Installation 
+
+Read step by step:
+
+https://flame-lang.mintlify.site/Installation
+
+Or download Linux release:
+
+https://github.com/TheFlameLang/Flame/releases/tag/0.10.0-dev3-hotfix
