@@ -1,6 +1,7 @@
 use stdlib;
 //use strings;
-//use std;
+//use std; currently C only
+use stddef;
 
 struct point {
 	i32 x=1;
@@ -27,6 +28,6 @@ func main() i32 {
 	point* p;
 	p.inc(2,2);
 	p.print_cord();
-	//stddef.test = 3;
+	stddef.test = 3;
 	return 0;
 }

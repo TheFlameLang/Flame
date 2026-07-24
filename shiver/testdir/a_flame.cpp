@@ -3,18 +3,7 @@
 #include <array>
 #include <vector>
 #include <memory>
-namespace stdlib {
-#include <iostream>
-#include <cstdint>
-#include <array>
-#include <vector>
-#include <memory>
 namespace stddef {
-#include <iostream>
-#include <cstdint>
-#include <array>
-#include <vector>
-#include <memory>
 const int64_t I64_MIN=(-9223372036854775807 - 1);
 const int64_t I64_MAX=9223372036854775807;
 const int32_t I32_MIN=-2147483648;
@@ -31,6 +20,7 @@ const uint8_t EXIT_OK=0;
 const uint8_t EXIT_ERR=1;
 uint8_t test=0;
 }
+namespace stdlib {
 int64_t abs(int64_t a)  {
     if(a == stddef::I64_MIN) {
         return 9223372036854775807;
@@ -112,6 +102,7 @@ int32_t main()  {
     std::unique_ptr<point> p= std::make_unique<point>();
     p->inc(2, 2);
     p->print_cord();
+    stddef::test=3;
     return 0;
 }
 
