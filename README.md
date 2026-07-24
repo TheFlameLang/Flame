@@ -1,5 +1,5 @@
 ### Flame
-Flame is programming language that transpiles into C++
+Flame is programming language that transpiles into C++(switch to C soon :D)
 
 
 
@@ -17,6 +17,7 @@ Flame is programming language that transpiles into C++
    - no use-after-free
    - no double free
    - no nullptr
+   - borrow checker (in dev)
   
 3. Good comptime diagnostic:
 
@@ -33,10 +34,29 @@ Flame is programming language that transpiles into C++
 
 # Installation 
 
-Read step by step:
+Read step by step(recommended):
 
 https://flame-lang.mintlify.site/Installation
 
 Or download Linux release:
 
-https://github.com/TheFlameLang/Flame/releases/tag/0.10.0-dev3-hotfix
+https://github.com/TheFlameLang/Flame/releases/tag/0.10.0-dev3-hotfix (Binary only, without stdlib and runtime for C)
+
+# Testing
+
+1. Create file
+
+2. Write simple code:
+
+```
+func add(i32 x, i32 y) i32 {
+   return x+y;
+}
+
+func main() i32 {
+   print(add(3, 4), "\n"); // 7
+   return 0;
+}
+```
+
+3. run with `flame -CXX myfile.flame -o test && test`
