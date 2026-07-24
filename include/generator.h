@@ -32,6 +32,7 @@ public:
   u64 column=0;
   bool c_gen=false;
   bool is_mod = false;
+  generator* root = nullptr;
   std::string pad() { return std::string(static_cast<int>(indent * 4), ' '); }
 
   std::ostringstream gen_code;
