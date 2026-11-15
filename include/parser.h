@@ -43,24 +43,15 @@ class parser {
     std::string filename; // filename
     bool errors=false;
     bool is_module=false;
-    bool c_gen=false;
     explicit parser(const std::vector<token> &a, const std::string &f) {
         src = a;
         indx = 0;
         filename = f;
     }
     std::string get_name(const std::string& varname, const std::string& struct_n="", bool module=true ) {
-        if(!c_gen) return varname;
-        //std::string fname = replaceChar(filename, '.', '_');
-        if(is_module&&module) {
-            std::string temp = filename + "_" + struct_n + "_" + varname;
-            return replaceChar(temp, '.', '_');
-        }
-        else {
-            if(struct_n=="") return varname;
-            std::string temp = struct_n + "_" + varname;
-            return replaceChar(temp, '.', '_');
-        }
+        (void)struct_n;
+        (void)module;
+        return varname;
     }
     bool returning=false; // internal: is parse_block seen return for function
 

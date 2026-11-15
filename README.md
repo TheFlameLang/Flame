@@ -1,5 +1,5 @@
 ### Flame
-Flame is programming language that transpiles into C++(switch to C soon :D)
+Flame is programming language that transpiles into C++.
 
 
 
@@ -62,6 +62,6 @@ func main() i32 {
 }
 ```
 
-4. run with `flame -CXX myfile.flame -o test && test`
+4. run with `flame myfile.flame -o test && test`
 
 

@@ -384,7 +384,6 @@ astptr parser::parse_use()
         lexer l;
         std::vector<token> toks = l.lex(code);
         parser p(toks, name);
-        p.c_gen = c_gen;
         p.is_module = true;
         std::vector<astptr> module;
         try
@@ -416,7 +415,6 @@ astptr parser::parse_use()
     lexer l;
     std::vector<token> toks = l.lex(code);
     parser p(toks, name);
-    p.c_gen = c_gen;
     p.is_module = true; // tells later to table that we parsing module
     std::vector<astptr> module;
     while (p.peek().type != token_type::EOF_)
@@ -556,32 +554,6 @@ astptr parser::parse_block(const token_type& expectedType, bool isptr_return)
     while (peek().type != R_BRACES && indx < src.size())
     {
         if (peek().type == RETURN) {
-            for(auto &x : std::ranges::reverse_view(table)[0]) {
-                if(x.second.type==STRING_TYPE&&c_gen) {
-                    token tok = token{.type=ID, .value=nothing{}, .line=0, .column=0, .str_value = "&" + x.second.name};
-                    std::vector<astptr> args;
-                    args.emplace_back(std::make_unique<Node>(tok));
-                    stmts.emplace_back(
-                        std::make_unique<FuncCallNode>(
-                            "oxygen_string_destroy",
-                            std::move(args),
-                            ""
-                        )
-                    );
-                }
-                if(x.second.is_ptr&&c_gen) {
-                    token tok = token{.type=ID, .value=nothing{}, .line=0, .column=0, .str_value = x.second.name};
-                    std::vector<astptr> args;
-                    args.emplace_back(std::make_unique<Node>(tok));
-                    stmts.emplace_back(
-                        std::make_unique<FuncCallNode>(
-                            "free",
-                            std::move(args),
-                            ""
-                        )
-                    );
-                }
-            }
             seen_return = true;
             if(expectedType !=NULL_) {
                 stmts.emplace_back(parse_return(expectedType, isptr_return));
@@ -1518,7 +1490,7 @@ astptr parser::parse_module_call(const std::string &name) {
                         consume();
                 }
                 consume(R_BRACKET);
-                if(!c_gen)  child.str_value = cname + "::" + child.str_value;
+                child.str_value = cname + "::" + child.str_value;
                 children.emplace_back(std::make_unique<FuncCallNode>(get_name(child.str_value, cname), std::move(args_), ""));
             }
         }
@@ -1534,7 +1506,7 @@ astptr parser::parse_module_call(const std::string &name) {
                     ParserError("\tTrying access variable '"+s.name+"' as array\n", peek());
                 }
                 child.str_value = search_module(child.str_value, name).name;
-                if(!c_gen) child.str_value = cname + "::" + child.str_value;
+                child.str_value = cname + "::" + child.str_value;
                 children.emplace_back(std::make_unique<ArrayAccessNode>(child, std::move(index), s.is_vector, s.type==STRING_TYPE));
             }
             else
@@ -1548,15 +1520,15 @@ astptr parser::parse_module_call(const std::string &name) {
                     }
                     consume(EQ);
                     astptr value = parse_or();
-                    if(!c_gen) child.str_value = cname + "::" + child.str_value;
+                    child.str_value = cname + "::" + child.str_value;
                     children.emplace_back(std::make_unique<AssignmentNode>(get_name(child.str_value, cname), std::move(value)));
                 }
                 else
                 {   
                     auto s = search_module(child.str_value, name);
 
-                    if(c_gen) child.str_value = get_name(s.name, name, false);
-                    else child.str_value = cname + "::" + child.str_value;
+                    (void)s;
+                    child.str_value = cname + "::" + child.str_value;
                     children.emplace_back(std::make_unique<Node>(child)); // access -> p.x
                     consume_semi = false;
                 }

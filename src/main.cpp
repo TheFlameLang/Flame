@@ -25,9 +25,6 @@ int main(int argc, char *argv[]) {
       std::cout << "-O2 - generate C++ with -O2\n";
       std::cout << "-O3 - generate C++ with -O3\n";
       std::cout << "-O4 - generate C++ with -O3, -funroll-loops, -flto\n";
-      std::cout << "======Backend======\n";
-      std::cout << "-CXX - generate only C++ code\n";
-      std::cout << "-C - use C backend(experimental)\n";
       std::cout << "-t - dont generate binary\n";
       std::cout << "-clang - use clang instead of gcc\n";
       return 0;
@@ -39,15 +36,11 @@ int main(int argc, char *argv[]) {
   bool lexer_output = false;
 
   uint8_t opt_level = 0; // by default -O0
-  
-  bool use_c=false;
   std::string filename = "";
   bool clang_ = false;
 
   for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-CXX") == 0)
-      use_c = false;
-    else if (strcmp(argv[i], "-o") == 0) {
+    if (strcmp(argv[i], "-o") == 0) {
       out_name = argc > i + 1 ? argv[i + 1] : "out";
       i++;
     }
@@ -65,10 +58,6 @@ int main(int argc, char *argv[]) {
       opt_level = 4;
     else if (strcmp(argv[i], "-t") == 0)
       compile_into_bin = false;
-    else if (strcmp(argv[i], "-C")==0) {
-      use_c = true;
-      std::cerr << "Using experimental feature: C generator\n";
-    }
     else if (strcmp(argv[i], "-clang") == 0)
       clang_ = true;
     else if(filename=="")
@@ -100,7 +89,6 @@ int main(int argc, char *argv[]) {
 
   std::vector<token> toks = lex.lex(code);
   parser parser_(toks, filename);
-  parser_.c_gen = use_c;
   u64 i = 0;
   if (lexer_output) {
     for (auto &tok : toks) {
@@ -119,7 +107,6 @@ int main(int argc, char *argv[]) {
   }
   if(parser_.errors) return 1;
   generator gen;
-  gen.c_gen = use_c;
   std::string code_;
 
   try {
@@ -129,7 +116,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  const std::string genname = out_name + (use_c ? "_flame.c" : "_flame.cpp");
+  const std::string genname = out_name + "_flame.cpp";
   std::ofstream out(genname, std::ios::out | std::ios::binary);
   if (!out.is_open()) {
     std::cerr << "E: Cannot open temp file to generate cpp code\n";
@@ -138,8 +125,7 @@ int main(int argc, char *argv[]) {
   out.write(code_.c_str(), (long)code_.size());
   out.close();
 
-  std::string compiler = use_c ? "gcc" : "g++";
-  if(clang_) compiler = use_c ? "clang" : "clang++";
+  std::string compiler = clang_ ? "clang++" : "g++";
 
   if (compile_into_bin) {
     std::string cleanup = "rm -f ";

@@ -30,7 +30,6 @@ public:
   int indent = 0;
   u64 line=1;
   u64 column=0;
-  bool c_gen=false;
   bool is_mod = false;
   generator* root = nullptr;
   std::string pad() { return std::string(static_cast<int>(indent * 4), ' '); }
@@ -38,7 +37,6 @@ public:
   std::ostringstream gen_code;
   std::string header;
   std::string gencode(astptr &node) {
-    if(c_gen) return node->gen_(*this);
     return node->gen(*this);
   }
 
@@ -61,34 +59,8 @@ public:
     }
   }
 
-  inline void c_headers() {
-    if(is_mod) return;
-    if(header.find("<iostream>\n")==std::string::npos) { 
-      header += "#include <stdio.h>\n";
-    }
-    if(header.find("<cstdint>")==std::string::npos) {
-      header += "#include <stdint.h>\n";
-    }
-    if(header.find("<oxygen_runtime.h>")==std::string::npos) {
-      header += "#include <oxygen_runtime.h>\n";
-      std::ostringstream check;
-      header += "#define OXYGEN_REQ_MAJ_V 0\n";
-      header += "#define OXYGEN_REQ_MIN_V 2\n";
-      header += "#define OXYGEN_REQ_PAT_V 0\n";
-      check << "#if OXYGEN_MAJOR_VER < OXYGEN_REQ_MAJ_V\n"
-      << "    #error \"Using very out-dated version of Oxygen Runtime!\"\n"
-      << "#elif OXYGEN_MINOR_VER < OXYGEN_REQ_MIN_V\n"
-      << "    #warning \"Using old version of Oxygen Runtime!\"\n"
-      << "#elif OXYGEN_PATCH_VER < OXYGEN_REQ_PAT_V\n"
-      << "    #warning \"Using older release of Oxygen Runtime!\"\n"
-      << "#endif\n";
-      header += check.str();
-    }
-  }
-
   std::string generate(std::vector<astptr> &nodes) {
-    if(c_gen) c_headers();
-    else cpp_headers();
+    cpp_headers();
     
     for (auto &x : nodes) {
       if(!x) continue;

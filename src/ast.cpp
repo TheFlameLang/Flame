@@ -464,7 +464,6 @@ std::string ModuleNode::gen(generator &g)
     generator gen;
     generator* root = g.root ? g.root : &g;
     gen.is_mod=true;
-    gen.c_gen = g.c_gen;
     gen.root = root;
     gen.generate(module);
     root->header += "namespace " + mname + " {\n";

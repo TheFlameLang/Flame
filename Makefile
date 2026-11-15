@@ -1,6 +1,6 @@
 CXX = g++
 CXX_FLAGS = -std=c++20 -g -O1 -Wall -Wextra
-CXX_OBJ = build/lexer.o build/parser.o build/main.o build/ast.o build/table.o build/ast_c.o
+CXX_OBJ = build/lexer.o build/parser.o build/main.o build/ast.o build/table.o
 HOME_ = $(HOME)
 
 all: main

@@ -14,6 +14,7 @@ int main(int argc, char* argv[]) {
     bool skip_init = false;
     bool build = false;
     bool verbose = false;
+    bool cpp_mode = true;
     for(int i=1;i<argc;i++) {
         if(strcmp(argv[i], "init")==0) {
             init = true;
@@ -24,9 +25,11 @@ int main(int argc, char* argv[]) {
         } else if(strcmp(argv[i], "verbose")==0) {
             verbose = true;
         } else if(strcmp(argv[i], "version")==0) {
-            std::cout << "Shiver 1.1 by Naharashu\n"
+            std::cout << "Shiver 1.1.1 by Naharashu\n"
             << "MIT License\n"
             << "Made with love\n";
+        } else if(strcmp(argv[i], "-c")==0) {
+            cpp_mode = false;
         }
     }
 
