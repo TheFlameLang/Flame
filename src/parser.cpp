@@ -6,6 +6,7 @@
 #include "../include/table.h"
 #include <cstddef>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <ranges>
@@ -15,11 +16,57 @@
 #include <utility>
 #include <vector>
 
+namespace {
+std::string resolve_module_path(const std::string &module_name, const std::string &current_file) {
+    std::vector<std::filesystem::path> search_dirs;
+    auto push_unique = [&](const std::filesystem::path &dir) {
+        if (dir.empty()) return;
+        for (const auto &existing : search_dirs) {
+            if (existing == dir) return;
+        }
+        search_dirs.push_back(dir);
+    };
+
+    if (!current_file.empty()) {
+        std::filesystem::path source = std::filesystem::absolute(current_file);
+        push_unique(source.parent_path());
+        push_unique(source.parent_path() / "stdlib");
+
+        std::filesystem::path parent = source.parent_path();
+        while (!parent.empty() && parent != parent.parent_path()) {
+            push_unique(parent / "stdlib");
+            parent = parent.parent_path();
+        }
+    }
+
+    push_unique(std::filesystem::current_path());
+    push_unique(std::filesystem::current_path() / "stdlib");
+
+    const char *home = std::getenv("HOME");
+    if (home != nullptr) {
+        push_unique(std::filesystem::path(home) / ".local" / "bin" / "flame_");
+    }
+
+    for (const auto &dir : search_dirs) {
+        const std::filesystem::path candidate = dir / (module_name + ".flame");
+        if (std::filesystem::exists(candidate)) {
+            return candidate.string();
+        }
+    }
+
+    return {};
+}
+} // namespace
+
 astptr parser::parse_factor()
 {
     if (peek().type == ID && peek(1).type == DOT) {
-        for(auto &x : loadedModules) {
-            if(peek().str_value==x) return parse_module_call(x);
+        token module = peek();
+        for (auto &x : loadedModules) {
+            if (module.str_value == x) {
+                consume(ID);
+                return parse_module_call(module.str_value);
+            }
         }
         return parse_method();
     }
@@ -89,15 +136,17 @@ astptr parser::parse_factor()
                         s->is_mut_now=false;
                     }
                 }
-                if(f && f->args[arg_i].is_ref_arg && f->args[arg_i].type!=c.type) {
+                if (f && arg_i < f->args.size() && f->args[arg_i].is_ref_arg && f->args[arg_i].type != c.type) {
                     ParserError("\tCannot pass temporarily value as mutable reference\n", c);
                 }
-                arg_i++;
-                if(f && f->args[arg_i].is_ref_arg) {
+                if (f && arg_i < f->args.size() && f->args[arg_i].is_ref_arg) {
                     token tok = consume(ID);
                     args_.push_back(std::make_unique<Node>(tok, search(tok.str_value).is_ptr, true));
                 }
-                else args_.push_back(parse_or());
+                else {
+                    args_.push_back(parse_or());
+                }
+                arg_i++;
                 if (peek().type == COMA)
                     consume();
             }
@@ -358,64 +407,43 @@ astptr parser::parse_use()
 {
     token m = consume(USE);
     const std::string mname = consume().str_value;
-    std::string name = mname + ".flame";
-    for(auto &x : loadedModules) {
-        if(x==name||mname=="std") {
-            if(mname=="std") {
-                std::cout << "std\n";
-                loadedModules.emplace_back("std.flame");
-                insert("fmt", FUNC, nothing{}, false,1, false, false, false, false, "std.flame");
-            }
-            consume(SEMI);
-            return {};
+    const std::string module_filename = mname + ".flame";
+
+    if (std::find(loadedModules.begin(), loadedModules.end(), mname) != loadedModules.end() || mname == "std") {
+        if (mname == "std") {
+            loadedModules.emplace_back(mname);
+            insert("fmt", FUNC, nothing{}, false, 1, false, false, false, false, mname, false, false, "");
         }
+        consume(SEMI);
+        return {};
     }
-    loadedModules.emplace_back(name);
+
+    const std::string resolved_path = resolve_module_path(mname, filename);
+    if (resolved_path.empty()) {
+        parser::line = m.line;
+        parser::column = m.column;
+        throw ParseTimeError("\tCannot find module '" + mname + "'\n");
+    }
+
+    loadedModules.emplace_back(mname);
     consume(SEMI);
-    std::ifstream file(name);
+
+    std::ifstream file(resolved_path);
     std::ostringstream oss;
-    if (!file.is_open())
-    {
-        std::string home = std::getenv("HOME");
-        file.open((home + std::string{"/.local/bin/flame_/"} + name));
-        oss << file.rdbuf();
-        std::string code = oss.str();
-        file.close();
-        lexer l;
-        std::vector<token> toks = l.lex(code);
-        parser p(toks, name);
-        p.is_module = true;
-        std::vector<astptr> module;
-        try
-        {
-            while (p.peek().type != token_type::EOF_)
-            {
-                module.push_back(p.parse_statement());
-            }
-        }
-        catch (ParseTimeError &e)
-        {
-            std::cerr << "\x1b[0;35m" << name << ':' << p.line << ':' << p.column << ": \x1b[31m error\n"
-                      << e.what() << "\x1b[0m";
-            parser::line = m.line;
-            parser::column = m.column;
-            throw ParseTimeError("\tError in module '" + name + "'\n");
-        }
-        return std::make_unique<ModuleNode>(std::move(module), mname);
-    }
-    if (!file)
-    {
-        std::cerr << "Cannot open file " << name << " or maybe it doesnt exits\n";
+    if (!file) {
+        std::cerr << "Cannot open file " << resolved_path << " or maybe it doesnt exits\n";
         file.close();
         exit(1);
     }
+
     oss << file.rdbuf();
     std::string code = oss.str();
     file.close();
+
     lexer l;
     std::vector<token> toks = l.lex(code);
-    parser p(toks, name);
-    p.is_module = true; // tells later to table that we parsing module
+    parser p(toks, mname);
+    p.is_module = true;
     std::vector<astptr> module;
     while (p.peek().type != token_type::EOF_)
     {
@@ -425,9 +453,9 @@ astptr parser::parse_use()
         }
         catch (ParseTimeError &e)
         {
-            std::cerr << "\x1b[0;35m" << filename << ':' << line << ':' << column << ": \x1b[31m error\n"
+            std::cerr << "\x1b[0;35m" << resolved_path << ':' << p.line << ':' << p.column << ": \x1b[31m error\n"
                       << e.what() << "\x1b[0m";
-            sync();
+            p.sync();
         }
     }
     return std::make_unique<ModuleNode>(std::move(module), mname);
@@ -507,29 +535,30 @@ astptr parser::parse_return(const token_type& expectedType, bool isptr_return)
     consume(RETURN);
     u64 rollback = indx; // rollback index
     // code analyse
-    while(peek().type!=SEMI&&!(expectedType==NULL_)) {
+    while (peek().type != SEMI && !(expectedType == NULL_)) {
         token t = consume();
-        if(t.type==ID) {
-            // if return ID or similar
+        if (t.type == ID) {
+            if (peek().type == DOT) {
+                continue;
+            }
             symbol s = search(t.str_value);
-            if(s.type==FUNC) s.type = fsearch(s.name)->type;
-            // if return x is i32 but function returning string
-            if(s.type!=expectedType) {
-                // integer type promotion
-                if(s.type<expectedType&&expectedType<STRING_TYPE) {
+            if (s.type == EOF_) {
+                continue;
+            }
+            if (s.type == FUNC) s.type = fsearch(s.name)->type;
+            if (s.type != expectedType) {
+                if (s.type < expectedType && expectedType < STRING_TYPE) {
                     ParserWarning("\tHidden int casting from "
                         + disassemble_tok_type(s.type) + " to "
-                        + disassemble_tok_type(expectedType)
-                        , t, "HiddenCast");
+                        + disassemble_tok_type(expectedType), t, "HiddenCast");
                 }
                 else {
                     ParserError("\tCannot return '" + disassemble_tok_type(s.type) +
-                 "', expected '" + disassemble_tok_type(expectedType) + "'\n" 
-                    , t);
+                                 "', expected '" + disassemble_tok_type(expectedType) + "'\n",
+                                t);
                 }
             }
-            // if func dummy() i32* {} but we returning i32 
-            if(!s.is_ptr&&isptr_return) {
+            if (!s.is_ptr && isptr_return) {
                 ParserError("\tExpected returning pointer\n", t);
             }
         }
@@ -1186,9 +1215,9 @@ astptr parser::parse_method()
 {
     token parent = consume(ID);
 
-    for(auto &x : loadedModules) {
-        if(x==parent.str_value+".flame") {
-            return parse_module_call(parent.str_value+".flame");
+    for (auto &x : loadedModules) {
+        if (x == parent.str_value || x == parent.str_value + ".flame") {
+            return parse_module_call(parent.str_value);
         }
     }
 
@@ -1280,11 +1309,11 @@ astptr parser::parse_method()
                         s->is_mut_now=false;
                     }
                 }
-                if(f && f->args[arg_i].is_ref_arg && f->args[arg_i].type!=c.type) {
+                if (f && arg_i < f->args.size() && f->args[arg_i].is_ref_arg && f->args[arg_i].type != c.type) {
                     ParserError("\tCannot pass temporarily value as mutable reference\n", c);
                 }
-                arg_i++;
                 args_.push_back(parse_or());
+                arg_i++;
                 if (peek().type == COMA)
                     consume();
             }
