@@ -1,5 +1,5 @@
 ### Flame
-Flame is programming language that transpiles into C++.
+Flame is programming language that transpiles into C++ and C.
 
 
 

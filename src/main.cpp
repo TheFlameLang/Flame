@@ -12,13 +12,14 @@ bool error_exit = false;
 int main(int argc, char *argv[]) {
   if (argc > 1) {
     if (strcmp(argv[1], "-v") == 0) {
-      std::cout << "Flame compiler 0.10.0\nBy Naharashu\n";
+      std::cout << "Flame compiler 0.11.0-experimental\nBy Naharashu\n";
       return 0;
     }
     if (strcmp(argv[1], "-h") == 0) {
       std::cout << "-o [filename] - output file name(executable), by default - out\n";
       std::cout << "-v - version of compiler\n";
       std::cout << "-lexer-debug - output lexed tokens\n";
+      std::cout << "-C - generate C11 instead of C++\n";
       std::cout << "======Compile flags======\n";
       std::cout << "-O0 - generate C++ with -O0\n";
       std::cout << "-O1 - generate C++ with -O1\n";
@@ -38,6 +39,7 @@ int main(int argc, char *argv[]) {
   uint8_t opt_level = 0; // by default -O0
   std::string filename = "";
   bool clang_ = false;
+  bool c_gen = false;
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "-o") == 0) {
@@ -60,6 +62,8 @@ int main(int argc, char *argv[]) {
       compile_into_bin = false;
     else if (strcmp(argv[i], "-clang") == 0)
       clang_ = true;
+    else if (strcmp(argv[i], "-C") == 0)
+      c_gen = true;
     else if(filename=="")
       filename = argv[i];
     else {
@@ -107,6 +111,7 @@ int main(int argc, char *argv[]) {
   }
   if(parser_.errors) return 1;
   generator gen;
+  gen.c_gen = c_gen;
   std::string code_;
 
   try {
@@ -116,27 +121,30 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  const std::string genname = out_name + "_flame.cpp";
+  const std::string genname = c_gen ? out_name + "_flame.c" : out_name + "_flame.cpp";
   std::ofstream out(genname, std::ios::out | std::ios::binary);
   if (!out.is_open()) {
-    std::cerr << "E: Cannot open temp file to generate cpp code\n";
+    std::cerr << "E: Cannot open temp file to generate source code\n";
     return 1;
   }
   out.write(code_.c_str(), (long)code_.size());
   out.close();
 
-  std::string compiler = clang_ ? "clang++" : "g++";
+  std::string compiler = c_gen
+      ? (clang_ ? "clang" : "gcc")
+      : (clang_ ? "clang++" : "g++");
 
   if (compile_into_bin) {
     std::string cleanup = "rm -f ";
     cleanup += out_name;
     system(cleanup.c_str());
     std::string output;
-    if(opt_level==0) output = compiler + " -O0 " + genname +" -o " + out_name;
-    else if(opt_level==1) output = compiler + " -O1 " + genname +" -o " + out_name;
-    else if(opt_level==2) output = compiler + " -O2 " + genname +" -o " + out_name;
-    else if(opt_level==3) output = compiler + " -O3 " + genname +" -o " + out_name;
-    else if(opt_level==4) output = compiler + " -O3 -funroll-loops -flto " + genname +" -o " + out_name;
+    const std::string cflags = c_gen ? "-std=gnu11 " : "";
+    if(opt_level==0) output = compiler + " " + cflags + "-O0 " + genname +" -o " + out_name;
+    else if(opt_level==1) output = compiler + " " + cflags + "-O1 " + genname +" -o " + out_name;
+    else if(opt_level==2) output = compiler + " " + cflags + "-O2 " + genname +" -o " + out_name;
+    else if(opt_level==3) output = compiler + " " + cflags + "-O3 " + genname +" -o " + out_name;
+    else if(opt_level==4) output = compiler + " " + cflags + "-O3 -funroll-loops -flto " + genname +" -o " + out_name;
     system(output.c_str());
   }
   // std::cout << code_ << std::endl;

@@ -1,4 +1,32 @@
-# Changelog from 11.07.2026
+
+### Flame 0.11.0:
+
+- C11 codegen (by Claude)
+
+### Flame 0.10.0(21.07.26):
+
+* mutable and not mutable references(**function arguments only**)
+* new style of warnings
+* now only one mutable refernce can be defined for var
+* switching to C backend
+* -t flag for only transpilation
+* stddef library
+* std.fmt()
+
+* **BUGFIXES**:
+    
+    * Now pointers realy moves if i32* b = a;
+    * arguments now can be consts(bug dont allowed it)
+    * functions was overlap each other
+    * bug was making that argument type and provided variable type even if mismatch it was working
+    * string tokens didnt have .str_value
+    * accessing string with compile time index 
+
+### Shiver 1.1
+
+* Added Flameflags parameter for build
+* minor changes
+
 
 ### Flame 0.9.0(11.07.26):
 
@@ -25,27 +53,3 @@
 
 * build time
 
-
-### Flame 0.10.0(21.07.26):
-
-* mutable and not mutable references(**function arguments only**)
-* new style of warnings
-* now only one mutable refernce can be defined for var
-* switching to C backend
-* -t flag for only transpilation
-* stddef library
-* std.fmt()
-
-* **BUGFIXES**:
-    
-    * Now pointers realy moves if i32* b = a;
-    * arguments now can be consts(bug dont allowed it)
-    * functions was overlap each other
-    * bug was making that argument type and provided variable type even if mismatch it was working
-    * string tokens didnt have .str_value
-    * accessing string with compile time index 
-
-### Shiver 1.1
-
-* Added Flameflags parameter for build
-* minor changes

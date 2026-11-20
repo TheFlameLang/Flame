@@ -49,6 +49,10 @@ public:
     (void)g;
 	  return "";
   }
+  virtual std::string gen_c(generator &g) {
+    (void)g;
+	  return "";
+  }
   virtual void print() const {}
 };
 
@@ -60,6 +64,7 @@ public:
   std::string struct_;
   explicit Node(const token& t, bool is_ptr=false, bool _is_ref_arg=false, const std::string& s="") : tok(t), isptr(is_ptr), is_ref_arg(_is_ref_arg), struct_(s) { kind = ast_type::JUSTNODE; line=tok.line; column=tok.column;};
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ReturnNode : public ASTNode {
@@ -68,6 +73,7 @@ public:
   explicit ReturnNode(astptr node) : value(std::move(node)) { kind = ast_type::RETURN; };
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ArgumentNode : public ASTNode {
@@ -84,6 +90,7 @@ public:
   };
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class BinaryNode : public ASTNode {
@@ -96,6 +103,7 @@ public:
     kind = ast_type::BINARY;
   };
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class CondNode : public ASTNode {
@@ -114,6 +122,7 @@ public:
   }
 
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class UnaryNode : public ASTNode {
@@ -129,6 +138,7 @@ public:
     left->print();
   }
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class AssignmentNode : public ASTNode {
@@ -145,6 +155,7 @@ public:
   };
 
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class AssignmentNodeExpr : public ASTNode {
@@ -162,6 +173,7 @@ public:
   };
 
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ReAssignmentNodeExpr : public ASTNode {
@@ -178,6 +190,7 @@ public:
   };
 
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class FuncCallNode : public ASTNode {
@@ -192,6 +205,7 @@ public:
 
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class BlockNode : public ASTNode {
@@ -203,6 +217,7 @@ public:
 
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class IfNode : public ASTNode {
@@ -217,6 +232,7 @@ public:
   }
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class FuncNode : public ASTNode {
@@ -235,6 +251,7 @@ public:
 
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class LoopNode : public ASTNode {
@@ -248,6 +265,7 @@ public:
   }
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ForNode : public ASTNode {
@@ -263,6 +281,7 @@ public:
   }
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ModuleNode : public ASTNode {
@@ -273,6 +292,7 @@ public:
 
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class BreakNode : public ASTNode {
@@ -280,6 +300,7 @@ public:
   BreakNode() { kind = ast_type::BREAK; }
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ContinueNode : public ASTNode {
@@ -287,6 +308,7 @@ public:
   ContinueNode() { kind = ast_type::CONTINUE; }
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class IncDecVarNode : public ASTNode {
@@ -295,6 +317,7 @@ public:
   std::string id;
   IncDecVarNode(u8 t,const std::string &n) : type(t), id(n) {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ArrayNode : public ASTNode {
@@ -310,6 +333,7 @@ public:
     kind = ast_type::ARRAY;
   }
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ArrayAccessNode : public ASTNode {
@@ -323,6 +347,7 @@ public:
     kind = ast_type::ARRAY_ACCESS;
   }
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ArrayChangeNode : public ASTNode {
@@ -336,6 +361,7 @@ public:
     kind = ast_type::ARRAY_CHANGE;
   }
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 
@@ -347,6 +373,7 @@ class NamespaceAccessNode : public ASTNode {
     kind = ast_type::NAMESPACE;
   }
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class MethodNode : public ASTNode {
@@ -362,6 +389,7 @@ class MethodNode : public ASTNode {
 
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class ModuleCallNode : public ASTNode {
@@ -374,6 +402,7 @@ class ModuleCallNode : public ASTNode {
 
   void print() const override {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };
 
 class StructNode : public ASTNode {
@@ -382,4 +411,5 @@ class StructNode : public ASTNode {
   std::vector<astptr> block;
   StructNode(const std::string &id_, std::vector<astptr> b) : id(id_), block(std::move(b)) {}
   std::string gen(generator &g) override;
+  std::string gen_c(generator &g) override;
 };

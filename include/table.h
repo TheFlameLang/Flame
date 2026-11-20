@@ -84,7 +84,8 @@ inline fsymbol* fsearch(const std::string &name) {
 }
 
 inline bool fexist(const std::string &name) {
-    if(fsearch(name)->type==EOF_) return false;
+    fsymbol* f = fsearch(name);
+    if(!f || f->type==EOF_) return false;
     return true;
 }
 

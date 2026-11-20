@@ -45,17 +45,29 @@ class eval_ast {
                         return eval_double(n->left) * eval_double(n->right);
                     }
                     case SLASH: {
-                        return eval_double(n->left) / eval_double(n->right);
+                        auto rhs = eval_double(n->right);
+                        if(rhs==0) {
+                            std::cerr << "Division by zero";
+                            exit(1);
+                        }
+                        return eval_double(n->left) / rhs;
                     }
                     case MOD: {
+                        auto rhs = eval_double(n->right);
+                        if(rhs==0) {
+                            std::cerr << "Modulo by zero";
+                            exit(1);
+                        }
                         return std::fmod(eval_double(n->left), eval_double(n->right));
                     }
                     default:
                         break;
                 }
+                break;
             }
             default:
-                return 0;
+                std::cerr << "Cannot eval value at compile time\n";
+                exit(1);
         }
         return 0;
     }

@@ -31,16 +31,23 @@ public:
   u64 line=1;
   u64 column=0;
   bool is_mod = false;
+  bool c_gen = false;
+  bool in_function = false;
   generator* root = nullptr;
   std::string pad() { return std::string(static_cast<int>(indent * 4), ' '); }
 
   std::ostringstream gen_code;
   std::string header;
   std::string gencode(astptr &node) {
+    if(c_gen) return node->gen_c(*this);
     return node->gen(*this);
   }
 
   inline void cpp_headers() {
+    if(c_gen) {
+      header += "#include <flame_rt.h>\n";
+      return;
+    }
     if(is_mod) return;
     if(header.find("<iostream>\n")==std::string::npos) { 
       header += "#include <iostream>\n";

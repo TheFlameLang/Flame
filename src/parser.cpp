@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+
+
 namespace {
 std::string resolve_module_path(const std::string &module_name, const std::string &current_file) {
     std::vector<std::filesystem::path> search_dirs;
@@ -44,7 +46,7 @@ std::string resolve_module_path(const std::string &module_name, const std::strin
 
     const char *home = std::getenv("HOME");
     if (home != nullptr) {
-        push_unique(std::filesystem::path(home) / ".local" / "bin" / "flame_");
+        push_unique(std::filesystem::path("/usr") / "bin" / "flame_");
     }
 
     for (const auto &dir : search_dirs) {
@@ -88,9 +90,7 @@ astptr parser::parse_factor()
         {
             if (!exist(tok.str_value))
             {
-                parser::line = tok.line;
-                parser::column = tok.column;
-                throw ParseTimeError("\tUse undeclared function '" + id + "'\n");
+                ParserError("\tUse undeclared function '" + id + "'\n", tok);
             }
 
             bool builtin = search(tok.str_value).is_const == true;
@@ -103,29 +103,11 @@ astptr parser::parse_factor()
             {
                 token c = peek();
                 token n = peek(1);
+                check_arity_overflow(f, arg_i, c);       
                 if ((c.type == ID && (n.type == COMA || n.type == R_BRACKET) && f))
                 {
                     symbol* s = searchptr(c.str_value);
-                    if (arg_i >= f->args.size())
-                    {
-                        parser::line = c.line;
-                        parser::column = c.column;
-                        throw ParseTimeError("\tExpected " + std::to_string(f->args.size()) + " arguments, got " +
-                                             std::to_string(arg_i) + "\n");
-                    }
-                    if (s->type != f->args[arg_i].type)
-                    {
-                        parser::line = c.line;
-                        parser::column = c.column;
-                        throw ParseTimeError("\tExpected argument of type '" +
-                                             disassemble_tok_type(f->args[arg_i].type) + "', but got '" +
-                                             disassemble_tok_type(search_type(c.str_value)) + "'\n");
-                    }
-                    if (s->is_array && search(c.str_value).size != f->args[arg_i].size)
-                    {
-                        ParserError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
-                                             "'\n", c);
-                    }
+                    check_call_arg(f, arg_i, c, s);  
                     if(f->args[arg_i].is_ref_arg) {
                         for(auto &x : mut_vars) {
                             if(s->name==x.name) {
@@ -150,6 +132,7 @@ astptr parser::parse_factor()
                 if (peek().type == COMA)
                     consume();
             }
+            check_arity_total(f, arg_i, peek());      
             consume(R_BRACKET);
             if (builtin)
                 return std::make_unique<FuncCallNode>(tok.str_value, std::move(args_), "");
@@ -192,22 +175,16 @@ astptr parser::parse_factor()
                 auto *val = std::get_if<bool>(&array.value);
                 if (val && *val == 1)
                 {
-                    parser::line = tok.line;
-                    parser::column = tok.column;
-                    throw ParseTimeError("\tAccesing uninitilyzed area of '" + id + "'\n");
+                    ParserError("\tAccesing uninitilyzed area of '" + id + "'\n", tok);
                 }
                 if (index >= array.size)
                 {
-                    parser::line = tok.line;
-                    parser::column = tok.column;
-                    throw ParseTimeError("\tOverflowed index of array '" + id + "', size of array is '" +
-                                         std::to_string(array.size) + "'\n");
+                    ParserError("\tOverflowed index of array '" + id + "', size of array is '" +
+                                std::to_string(array.size) + "'\n", tok);
                 }
                 if (index < 0)
                 {
-                    parser::line = tok.line;
-                    parser::column = tok.column;
-                    throw ParseTimeError("\tUnderflowed index of array '" + id + "'\n");
+                    ParserError("\tUnderflowed index of array '" + id + "'\n", tok);
                 }
             }
             if (have_id) 
@@ -215,9 +192,7 @@ astptr parser::parse_factor()
             auto *val = get_if<bool>(&array.value);
             if (val && *val == 1)
             {
-                parser::line = tok.line;
-                parser::column = tok.column;
-                throw ParseTimeError("\tAccesing uninitilyzed area of '" + id + "'\n");
+                ParserError("\tAccesing uninitilyzed area of '" + id + "'\n", tok);
             }
             consume(R_SQ_BRACKET);
             if (peek().type != EQ) {
@@ -226,9 +201,7 @@ astptr parser::parse_factor()
             consume(EQ);
             if (array.is_const)
             {
-                parser::line = tok.line;
-                parser::column = tok.column;
-                throw ParseTimeError("\tArray '" + id + "' is constant'\n");
+                ParserError("\tArray '" + id + "' is constant'\n", tok);
             }
             if (!have_id)
             {
@@ -236,16 +209,12 @@ astptr parser::parse_factor()
                 u64 index = e.eval<u64>(i);
                 if (index >= array.size)
                 {
-                    parser::line = tok.line;
-                    parser::column = tok.column;
-                    throw ParseTimeError("\tOverflowed index of array '" + id + "', size of array is '" +
-                                         std::to_string(array.size) + "'\n");
+                    ParserError("\tOverflowed index of array '" + id + "', size of array is '" +
+                                std::to_string(array.size) + "'\n", tok);
                 }
                 if (index < 0)
                 {
-                    parser::line = tok.line;
-                    parser::column = tok.column;
-                    throw ParseTimeError("\tUnderflowed index of array '" + id + "'\n");
+                    ParserError("\tUnderflowed index of array '" + id + "'\n", tok);
                 }
             }
             ParserWarning("\tAccessing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
@@ -254,9 +223,7 @@ astptr parser::parse_factor()
         }
         if (!exist(variant2string(tok.str_value)))
         {
-            parser::line = tok.line;
-            parser::column = tok.column;
-            throw ParseTimeError("\tUse undeclared variable '" + variant2string(tok.str_value) + "'\n");
+            ParserError("\tUse undeclared variable '" + variant2string(tok.str_value) + "'\n", tok);
         }
         if (search(variant2string(tok.str_value)).comptime)
         {
@@ -297,9 +264,7 @@ astptr parser::parse_factor()
     }
     else
     {
-        parser::line = tok.line;
-        parser::column = tok.column;
-        throw ParseTimeError("\tUnexpected token '" + disassemble_tok_type(tok.type) + "'\n");
+        ParserError("\tUnexpected token '" + disassemble_tok_type(tok.type) + "'\n", tok);
     }
 }
 
@@ -420,9 +385,7 @@ astptr parser::parse_use()
 
     const std::string resolved_path = resolve_module_path(mname, filename);
     if (resolved_path.empty()) {
-        parser::line = m.line;
-        parser::column = m.column;
-        throw ParseTimeError("\tCannot find module '" + mname + "'\n");
+        ParserError("\tCannot find module '" + mname + "'\n", m);
     }
 
     loadedModules.emplace_back(mname);
@@ -646,9 +609,7 @@ astptr parser::parse_func_statement(const std::string &struct_)
             token size = peek();
             if (!is_it_int_value(size) || (size.str_value != "" && !search(size.str_value).comptime))
             {
-                parser::line = type.line;
-                parser::column = type.column;
-                throw ParseTimeError("\tExpected compile time size\n");
+                ParserError("\tExpected compile time size\n", size);
             }
             eval_ast e;
             i = e.eval<u64>(parse_factor());
@@ -658,10 +619,8 @@ astptr parser::parse_func_statement(const std::string &struct_)
         token arg_id = consume(ID);
         if (!is_it_type(type))
         {
-            parser::line = type.line;
-            parser::column = type.column;
-            throw ParseTimeError("\tUnknown type of argument '" + variant2string(arg_id.str_value) +
-                                 "', expected i8..i64, u8..u64, bool, string, f32, f64, auto or Type[]\n");
+            ParserError("\tUnknown type of argument '" + variant2string(arg_id.str_value) +
+                        "', expected i8..i64, u8..u64, bool, string, f32, f64, auto or Type[]\n", type);
         }
         insert(arg_id.str_value, type.type, nothing{}, false, i, is_array, false, false, false, "", false, is_mut);
         astptr argument = std::make_unique<ArgumentNode>(type, get_name(arg_id.str_value), is_array, i, is_ref, is_const, is_mut);
@@ -694,17 +653,13 @@ astptr parser::parse_func_statement(const std::string &struct_)
     }
     if (!is_it_type(return_type) && return_type.type != VOID_TYPE)
     {
-        parser::line = return_type.line;
-        parser::column = return_type.column;
-        throw ParseTimeError("\tUnknown return type in " + id.str_value +
-                             ", expected i8..64, u8..64, bool, string, void, f32, f64, auto\n");
+        ParserError("\tUnknown return type in " + id.str_value +
+                    ", expected i8..64, u8..64, bool, string, void, f32, f64, auto\n", return_type);
     }
     astptr block = parse_block(return_type.type);
     if (!returning && return_type.type != VOID_TYPE)
     {
-        parser::line = id.line;
-        parser::column = id.column;
-        throw ParseTimeError("\tFunction " + id.str_value + " doesnt have returning\n");
+        ParserError("\tFunction " + id.str_value + " doesnt have returning\n", id);
     }
     table.pop_back();
     returning = false;
@@ -721,9 +676,7 @@ astptr parser::parse_if_statement()
     token next = peek();
     if (next.type == R_BRACKET)
     {
-        parser::line = next.line;
-        parser::column = next.column;
-        throw ParseTimeError("\tExpected condition in if, like if(a<10)\n");
+        ParserError("\tExpected condition in if, like if(a<10)\n", next);
     }
     astptr cond = parse_or();
     consume(R_BRACKET);
@@ -790,9 +743,7 @@ astptr parser::parse_break_continue()
     }
     else
     {
-        parser::line = a.line;
-        parser::column = a.column;
-        throw ParseTimeError("\tError in parsing break or continue, expected break or continue\n");
+        ParserError("\tError in parsing break or continue, expected break or continue\n", a);
     }
 }
 
@@ -802,9 +753,7 @@ astptr parser::parse_array(bool is_const, const std::string &struct_)
         return parse_factor();
     if (!is_it_type(peek()) || !(peek(1).type == L_SQ_BRACKET))
     {
-        parser::line = peek().line;
-        parser::column = peek().column;
-        throw ParseTimeError("\tError in parsing array, expected syntax like this: Type[]\n");
+        ParserError("\tError in parsing array, expected syntax like this: Type[]\n", peek());
     }
     token type = consume();
     consume(L_SQ_BRACKET);
@@ -828,19 +777,11 @@ astptr parser::parse_array(bool is_const, const std::string &struct_)
                                            id,
                                            variant2int<unsigned long long>(size.value),
                                            false);
-        /*
-        token semi = consume(SEMI);
-        parser::line = semi.line;
-        parser::column = semi.column;
-        throw ParseTimeError("\tDeclaring array '" + id + "' without initializing values\n");
-        */
     }
     consume(EQ);
     if (peek().type == ID && !size_defined)
     {
-        parser::line = peek().line;
-        parser::column = peek().column;
-        throw ParseTimeError("\tValue of array '" + id + "' must be known at compile time\n");
+        ParserError("\tValue of array '" + id + "' must be known at compile time\n", peek());
     }
     else if (peek().type == ID)
     {
@@ -883,9 +824,7 @@ void parser::parse_comptime()
     token type = consume();
     if (!is_it_type(type))
     {
-        parser::line = type.line;
-        parser::column = type.column;
-        throw ParseTimeError("\tUnexpected type " + std::to_string(type.type) + '\n');
+        ParserError("\tUnexpected type " + std::to_string(type.type) + '\n', type);
     }
     std::string id = variant2string(consume(ID).str_value);
     consume(EQ);
@@ -894,9 +833,7 @@ void parser::parse_comptime()
     {
         if (peek(i).type == ID && !search(peek(i).str_value).comptime)
         {
-            parser::line = peek(i).line;
-            parser::column = peek(i).column;
-            throw ParseTimeError("\tValue cannot be evaluated in compile time\n");
+            ParserError("\tValue cannot be evaluated in compile time\n", peek(i));
         }
         if (peek(i).type == SEMI)
             break;
@@ -962,9 +899,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         consume();
         if (!exist(id.str_value))
         {
-            parser::line = id.line;
-            parser::column = id.column;
-            throw ParseTimeError("\tUse undeclared variable '" + id.str_value + "'\n");
+            ParserError("\tUse undeclared variable '" + id.str_value + "'\n", id);
         }
         if (a.type == PLUS)
         {
@@ -991,9 +926,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
             token op = consume();
             if (!exist(type.str_value))
             {
-                parser::line = type.line;
-                parser::column = type.column;
-                throw ParseTimeError("\tUse undeclared variable '" + type.str_value + "'\n");
+                ParserError("\tUse undeclared variable '" + type.str_value + "'\n", type);
             }
             consume(EQ);
 
@@ -1029,15 +962,11 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
         }
         if (!exist(variant2string(type.str_value)) && !is_struct(type.str_value))
         {
-            parser::line = type.line;
-            parser::column = type.column;
-            throw ParseTimeError("\tUse undeclared variable '" + variant2string(type.str_value) + "'\n");
+            ParserError("\tUse undeclared variable '" + variant2string(type.str_value) + "'\n", type);
         }
         if (search(variant2string(type.str_value)).is_const || is_const)
         {
-            parser::line = type.line;
-            parser::column = type.column;
-            throw ParseTimeError("\tVariable '" + variant2string(type.str_value) + "' is constant'\n");
+            ParserError("\tVariable '" + variant2string(type.str_value) + "' is constant'\n", type);
         }
         
         std::string mov_from = "";
@@ -1071,9 +1000,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
     }
     if (!is_it_type(type) || is_struct(type.str_value))
     {
-        parser::line = type.line;
-        parser::column = type.column;
-        throw ParseTimeError("\tUnexpected type " + std::to_string(type.type) + '\n');
+        ParserError("\tUnexpected type " + std::to_string(type.type) + '\n', type);
     }
     if (peek().type == STAR)
     {
@@ -1084,27 +1011,19 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
 
         if (exist_in_scope(id_value, table.size() - 1) && !exist_in_scope(id_value, 0))
         {
-            parser::line = id.line;
-            parser::column = id.column;
-            throw ParseTimeError("\tRedefinition of '" + id.str_value + "'\n");
+            ParserError("\tRedefinition of '" + id.str_value + "'\n", id);
         }
         else if (search_type(id_value) == FUNC)
         {
-            parser::line = id.line;
-            parser::column = id.column;
-            throw ParseTimeError("\tRedefinition function '" + id.str_value + "' as variable\n");
+            ParserError("\tRedefinition function '" + id.str_value + "' as variable\n", id);
         }
         else if (search(id_value).is_const)
         {
-            parser::line = id.line;
-            parser::column = id.column;
-            throw ParseTimeError("\tVariable '" + id_value + "' is constant'\n");
+            ParserError("\tVariable '" + id_value + "' is constant'\n", id);
         }
         else if (search(id_value).comptime)
         {
-            parser::line = id.line;
-            parser::column = id.column;
-            throw ParseTimeError("\tVariable '" + id_value + "' is compile time value'\n");
+            ParserError("\tVariable '" + id_value + "' is compile time value'\n", id);
         }
         if(peek().type==SEMI) {
             consume(SEMI);
@@ -1156,27 +1075,19 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
     std::string id_value = id.str_value;
     if (exist_in_scope(id_value, table.size() - 1) && !exist_in_scope(id_value, 0))
     {
-        parser::line = id.line;
-        parser::column = id.column;
-        throw ParseTimeError("\tRedefinition of '" + id.str_value + "'\n");
+        ParserError("\tRedefinition of '" + id.str_value + "'\n", id);
     }
     else if (search_type(id_value) == FUNC)
     {
-        parser::line = id.line;
-        parser::column = id.column;
-        throw ParseTimeError("\tRedefinition function '" + id.str_value + "' as variable\n");
+        ParserError("\tRedefinition function '" + id.str_value + "' as variable\n", id);
     }
     else if (search(id_value).is_const)
     {
-        parser::line = id.line;
-        parser::column = id.column;
-        throw ParseTimeError("\tVariable '" + id_value + "' is constant'\n");
+        ParserError("\tVariable '" + id_value + "' is constant'\n", id);
     }
     else if (search(id_value).comptime)
     {
-        parser::line = id.line;
-        parser::column = id.column;
-        throw ParseTimeError("\tVariable '" + id_value + "' is compile time value'\n");
+        ParserError("\tVariable '" + id_value + "' is compile time value'\n", id);
     }
     if (peek().type == SEMI)
     {
@@ -1224,9 +1135,7 @@ astptr parser::parse_method()
 
     if (!exist(parent.str_value))
     {
-        parser::line = parent.line;
-        parser::column = parent.column;
-        throw ParseTimeError("\tUse undeclared variable '" + parent.str_value + "'\n");
+        ParserError("\tUse undeclared variable '" + parent.str_value + "'\n", parent);
     }
     symbol var = search(parent.str_value);
     std::string type = var.struct_;
@@ -1241,9 +1150,7 @@ astptr parser::parse_method()
         token child = consume(ID);
         if (search(child.str_value).struct_!=search(parent.str_value).struct_)
         {
-            parser::line = child.line;
-            parser::column = child.column;
-            throw ParseTimeError("\tUse undeclared variable '" + child.str_value + "'\n");
+            ParserError("\tUse undeclared variable '" + child.str_value + "'\n", child);
         }
         isptrs.push_back(search(variant2string(search(parent.str_value).value) + child.str_value).is_ptr);
         if (peek().type == L_BRACKET)
@@ -1270,35 +1177,10 @@ astptr parser::parse_method()
                 token c = peek();
                 symbol* s = searchptr(c.str_value);
                 token n = peek(1);
+                check_arity_overflow(f, arg_i, c);
                 if ((c.type == ID && (n.type == COMA || n.type == R_BRACKET) && f))
                 {
-                    if (arg_i >= f->args.size())
-                    {
-                        parser::line = c.line;
-                        parser::column = c.column;
-                        throw ParseTimeError("\tExpected " + std::to_string(f->args.size()) + " arguments, got " +
-                                             std::to_string(arg_i) + "\n");
-                    }
-                    if (search(c.str_value).type != f->args[arg_i].type)
-                    {
-                        parser::line = c.line;
-                        parser::column = c.column;
-                        throw ParseTimeError("\tExpected argument of type '" +
-                                             disassemble_tok_type(f->args[arg_i].type) + "', but got '" +
-                                             disassemble_tok_type(search_type(c.str_value)) + "'\n");
-                    }
-                    if (search(c.str_value).is_array && search(c.str_value).size != f->args[arg_i].size)
-                    {
-                        parser::line = c.line;
-                        parser::column = c.column;
-                        throw ParseTimeError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
-                                             "'\n");
-                    }
-                    if (s->is_array && search(c.str_value).size != f->args[arg_i].size)
-                    {
-                        ParserError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
-                                             "'\n", c);
-                    }
+                    check_call_arg(f, arg_i, c, s);    
                     if(f->args[arg_i].is_ref_arg) {
                         for(auto &x : mut_vars) {
                             if(s->name==x.name) {
@@ -1317,6 +1199,7 @@ astptr parser::parse_method()
                 if (peek().type == COMA)
                     consume();
             }
+            check_arity_total(f, arg_i, peek());
             consume(R_BRACKET);
             children.emplace_back(std::make_unique<FuncCallNode>(child.str_value, std::move(args_), ""));
             if (peek().type == SEMI)
@@ -1380,10 +1263,7 @@ astptr parser::parse_method()
                 if(peek().type==EQ) {
                     // reasingning -> p.x = 32;
                     if(search(child.str_value).is_const) {
-                        parser::line = child.line;
-                        parser::column = child.column;
-                        throw ParseTimeError("\tVariable '" + child.str_value +
-                                             "' is constant\n");
+                        ParserError("\tVariable '" + child.str_value + "' is constant\n", child);
                     }
                     consume(EQ);
                     astptr value = parse_or();
@@ -1468,9 +1348,7 @@ astptr parser::parse_module_call(const std::string &name) {
         token child = consume(ID);
         if (!exist_module(child.str_value, name))
         {
-            parser::line = child.line;
-            parser::column = child.column;
-            throw ParseTimeError("\tUse undeclared variable '" + child.str_value + "' in module " + name + "\n");
+            ParserError("\tUse undeclared variable '" + child.str_value + "' in module " + name + "\n", child);
         }
         isptrs.push_back(search_module(child.str_value, name).is_ptr);
         if (peek().type == L_BRACKET)
@@ -1487,30 +1365,25 @@ astptr parser::parse_module_call(const std::string &name) {
                 {
                     token c = peek();
                     token n = peek(1);
+                    check_arity_overflow(f, arg_i, c);
                     if ((c.type == ID && (n.type == COMA || n.type == R_BRACKET) && f))
                     {
                         //if(search_module(c.str_value, name).type!)
                         if (arg_i >= f->args.size())
                         {
-                            parser::line = c.line;
-                            parser::column = c.column;
-                            throw ParseTimeError("\tExpected " + std::to_string(f->args.size()) + " arguments, got " +
-                                                std::to_string(arg_i) + "\n");
+                            ParserError("\tExpected " + std::to_string(f->args.size()) + " arguments, got " +
+                                        std::to_string(arg_i) + "\n", c);
                         }
                         if (search_module(c.str_value, name).type != f->args[arg_i].type)
                         {
-                            parser::line = c.line;
-                            parser::column = c.column;
-                            throw ParseTimeError("\tExpected argument of type '" +
-                                                disassemble_tok_type(f->args[arg_i].type) + "', but got '" +
-                                                disassemble_tok_type(search_type(c.str_value)) + "'\n");
+                            ParserError("\tExpected argument of type '" +
+                                        disassemble_tok_type(f->args[arg_i].type) + "', but got '" +
+                                        disassemble_tok_type(search_type(c.str_value)) + "'\n", c);
                         }
                         if (search_module(c.str_value, name).is_array && search_module(c.str_value, name).size != f->args[arg_i].size)
                         {
-                            parser::line = c.line;
-                            parser::column = c.column;
-                            throw ParseTimeError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
-                                                "'\n");
+                            ParserError("\tExpected array of size '" + std::to_string(f->args[arg_i].size) +
+                                        "'\n", c);
                         }
                     }
                     arg_i++;
@@ -1518,6 +1391,7 @@ astptr parser::parse_module_call(const std::string &name) {
                     if (peek().type == COMA)
                         consume();
                 }
+                check_arity_total(f, arg_i, peek());
                 consume(R_BRACKET);
                 child.str_value = cname + "::" + child.str_value;
                 children.emplace_back(std::make_unique<FuncCallNode>(get_name(child.str_value, cname), std::move(args_), ""));

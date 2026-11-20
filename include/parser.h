@@ -3,6 +3,7 @@
 #include "lexer.h"
 #include "ast.h"
 #include "common.h"
+#include "table.h"
 #include <algorithm>
 #include <string>
 #include <unordered_map>
@@ -61,7 +62,7 @@ class parser {
      * @param error text for error msg
      * @param tok for line and column 
      */
-    inline void ParserError(const std::string &error, const token &tok) {
+    [[noreturn]] inline void ParserError(const std::string &error, const token &tok) {
         line = tok.line;
         column = tok.column;
         throw ParseTimeError(error);
@@ -77,6 +78,33 @@ class parser {
     inline void ParserWarning(const std::string &warning, const token &tok, const std::string& warntype="BasicWarning") {
         std::cerr << "\x1b[0;33m" << filename << ":" << std::to_string(tok.line) << ":" + std::to_string(tok.column)
                           << ":  warning(" << warntype << ")\n" << warning << '\n' << "\x1b[0m\n";
+    }
+
+    inline void check_arity_overflow(const fsymbol *f, u64 arg_i, const token &at) {
+        if (f && arg_i >= f->args.size()) {
+            ParserError("\tExpected " + std::to_string(f->args.size()) + " arguments, but got more\n", at);
+        }
+    }
+
+    inline void check_arity_total(const fsymbol *f, u64 got, const token &at) {
+        if (f && got != f->args.size()) {
+            ParserError("\tExpected " + std::to_string(f->args.size()) + " arguments, got " + std::to_string(got) + "\n", at);
+        }
+    }
+
+    inline void check_call_arg(const fsymbol *f, u64 arg_i, const token &c, const symbol *s) {
+        if (!s || s->type == EOF_) {
+            ParserError("\tUse undeclared variable '" + c.str_value + "'\n", c);
+        }
+        check_arity_overflow(f, arg_i, c);
+        const symbol &param = f->args[arg_i];
+        if (s->type != param.type) {
+            ParserError("\tExpected argument of type '" + disassemble_tok_type(param.type) +
+                        "', but got '" + disassemble_tok_type(s->type) + "'\n", c);
+        }
+        if (s->is_array && s->size != param.size) {
+            ParserError("\tExpected array of size '" + std::to_string(param.size) + "'\n", c);
+        }
     }
 
     astptr parse_expr();
