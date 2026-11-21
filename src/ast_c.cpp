@@ -217,7 +217,7 @@ std::string AssignmentNodeExpr::gen_c(generator &g)
     if (is_ptr)
     {
         std::string base = type.empty() ? sid : type;
-        std::string decl = const_ + base + " *" + id + " = ";
+        std::string decl = "smart " + const_ + base + "* " + id + " = ";
         if (val)
         {
             if (is_mov)
@@ -355,8 +355,8 @@ std::string ArgumentNode::gen_c(generator &g)
     (void)g;
     std::string t = rtrim(type_in_c(type));
     if (is_array) return (isconst ? "const " : "") + t + " " + id + "[" + std::to_string(size_if_array) + "]"; // decays to pointer
-    if (ref) return "const " + t + " *" + id;
-    if (ismut) return t + " *" + id;
+    if (ref) return "smart const " + t + "* " + id;
+    if (ismut) return "smart " + t + "* " + id;
     return (isconst ? "const " : "") + t + " " + id;
 }
 
@@ -441,9 +441,9 @@ std::string ArrayNode::gen_c(generator &g)
     if (is_vector)
     {
         // vectors are `T *` with a hidden header (see flame_rt.h)
-        if (is_init) return elem + " *" + id + " = " + g.gencode(values.at(0));
-        if (values.empty()) return elem + " *" + id + " = NULL";
-        return elem + " *" + id + " = flame_vec_from(" + elem + ", " + std::to_string(values.size()) + ", " + vals + ")";
+        if (is_init) return "smart " + elem + "* " + id + " = " + g.gencode(values.at(0));
+        if (values.empty()) return "smart " + elem + "* " + id + " = NULL";
+        return "smart " + elem + "* " + id + " = flame_vec_from(" + elem + ", " + std::to_string(values.size()) + ", " + vals + ")";
     }
     std::string decl = elem + " " + id + "[" + std::to_string(size) + "]";
     if (is_init) return decl + "; memcpy(" + id + ", " + g.gencode(values.at(0)) + ", sizeof(" + id + "))";
@@ -536,7 +536,7 @@ std::string StructNode::gen_c(generator &g)
             std::string sid = qualify_struct(m->struct_id);
             bool is_struct_t = base.empty();
             if (is_struct_t) base = sid;
-            decl = std::string(m->is_const ? "const " : "") + base + (m->is_ptr ? " *" : " ") + m->id;
+            decl = std::string(m->is_ptr ? "smart " : "") + (m->is_const ? "const " : "") + base + (m->is_ptr ? "* " : " ") + m->id;
             fname = m->id;
             if (!m->is_ptr)
             {
@@ -549,7 +549,7 @@ std::string StructNode::gen_c(generator &g)
         {
             std::string elem = rtrim(type_in_c(a->type));
             fname = a->id;
-            decl = a->is_vector ? elem + " *" + a->id : elem + " " + a->id + "[" + std::to_string(a->size) + "]";
+            decl = a->is_vector ? "smart " + elem + "* " + a->id : elem + " " + a->id + "[" + std::to_string(a->size) + "]";
             if (!a->values.empty() && !a->is_init)
             {
                 std::string vals;

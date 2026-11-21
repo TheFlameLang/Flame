@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <csptr/smart_ptr.h>
 
 typedef const char *flame_str;
 

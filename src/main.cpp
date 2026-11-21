@@ -146,6 +146,8 @@ int main(int argc, char *argv[]) {
     else if(opt_level==3) output = compiler + " " + cflags + "-O3 " + genname +" -o " + out_name;
     else if(opt_level==4) output = compiler + " " + cflags + "-O3 -funroll-loops -flto " + genname +" -o " + out_name;
     system(output.c_str());
+    const std::string remove_cmd = "rm -f " + genname;
+    system(remove_cmd.c_str());
   }
   // std::cout << code_ << std::endl;
   return 0;
