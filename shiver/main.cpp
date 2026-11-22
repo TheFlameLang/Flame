@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     }
     if(strcmp(argv[1], "help")==0) {
         std::cerr << "Shiver [OPTIONS]\n"
-        << "init (skip) - initialize build.toml\n"
+        << "init (skip) - initialize project.toml\n"
         << "build (dev|debug|release|fast) - build project\n"
         << "version - prints version\n"
         << "verbose - sets verbose mode\n";
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
             f << "output = \"example\"\n";
             f << "cxx = \"g++\"\n";
             f << "cxxflags = \"-g -O1 -Wall\"\n";
-            f << "flameflags = \"-CXX\"\n";
+            f << "flameflags = \"\"\n";
             f << "src = [] # order will matter";
         } else {
             std::ofstream f("project.toml");
