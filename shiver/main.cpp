@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
                 if(y.path().extension() == ".flame") {
                     const std::string n = y.path().stem();
                     const std::string name = y.path().filename();
-                    std::string cmd_ = "flame " + flameflags + ' '; cmd_ += x + '/' + name; cmd_ += " -o ./build/" + n;
+                    std::string cmd_ = "flame " + flameflags + ' '; cmd_ += x + '/' + name; cmd_ += " -o ./build/" + n + "_flame.cpp";
                     std::cout << "Compiling " << termcolor::bright_yellow << x << '/' <<  name << termcolor::reset
                     << " into C++...\n";
                     if(verbose) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd_ << '\n';
