@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
             ver = "1.0.0";
         }
         std::cout << "Starting building " << name << '@' << ver << "...\n";
-        std::string flameflags = t["build"]["flameflags"].value_or("-CXX");
+        std::string flameflags = t["build"]["flameflags"].value_or(" ");
         auto start = std::chrono::high_resolution_clock::now();
         std::filesystem::create_directory("./build");
         for(auto &x : src) {
