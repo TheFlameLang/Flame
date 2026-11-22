@@ -171,7 +171,7 @@ astptr parser::parse_factor()
             if (!have_id)
             {
                 eval_ast e;
-                u64 index = e.eval<u64>(i);
+                i64 index = e.eval<u64>(i);
                 auto *val = std::get_if<bool>(&array.value);
                 if (val && *val == 1)
                 {
@@ -187,8 +187,7 @@ astptr parser::parse_factor()
                     ParserError("\tUnderflowed index of array '" + id + "'\n", tok);
                 }
             }
-            if (have_id) 
-                ParserWarning("\tAccessing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
+            if (have_id) ParserWarning("\tAccessing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
             auto *val = get_if<bool>(&array.value);
             if (val && *val == 1)
             {
@@ -217,7 +216,7 @@ astptr parser::parse_factor()
                     ParserError("\tUnderflowed index of array '" + id + "'\n", tok);
                 }
             }
-            ParserWarning("\tAccessing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
+            if(have_id) ParserWarning("\tAccessing array '" + id + "' with not compile time index, it may lead to errors", tok, "NonCompileTimeIndex");
             astptr value = parse_expr();
             return std::make_unique<ArrayChangeNode>(tok, std::move(i), std::move(value), false, array.type==STRING_TYPE);
         }
@@ -282,7 +281,7 @@ astptr parser::parse_unary()
 
 astptr parser::parse_and_b()
 {
-    astptr node = parse_unary();
+    astptr node = parse_equality();
 
     while (true)
     {
@@ -291,7 +290,7 @@ astptr parser::parse_and_b()
             break;
 
         consume();
-        astptr rhs = parse_unary();
+        astptr rhs = parse_equality();
         node = std::make_unique<BinaryNode>(std::move(node), std::move(rhs), op);
     }
 
@@ -336,7 +335,7 @@ astptr parser::parse_or_b()
 
 astptr parser::parse_term()
 {
-    astptr node = parse_or_b();
+    astptr node = parse_unary();
 
     while (true)
     {
@@ -345,7 +344,7 @@ astptr parser::parse_term()
             break;
 
         consume();
-        astptr rhs = parse_or_b();
+        astptr rhs = parse_unary();
         node = std::make_unique<BinaryNode>(std::move(node), std::move(rhs), op);
     }
 
@@ -421,6 +420,7 @@ astptr parser::parse_use()
             p.sync();
         }
     }
+    if (p.errors) errors = true;
     return std::make_unique<ModuleNode>(std::move(module), mname);
 }
 
@@ -434,7 +434,7 @@ astptr parser::parse_shift()
             break;
         consume();
         astptr rhs = parse_expr();
-        node = std::make_unique<CondNode>(std::move(node), std::move(rhs), op.type);
+        node = std::make_unique<BinaryNode>(std::move(node), std::move(rhs), op);
     }
     return node;
 }
@@ -471,11 +471,11 @@ astptr parser::parse_equality()
 
 astptr parser::parse_and()
 {
-    astptr node = parse_equality();
+    astptr node = parse_or_b();
     while (peek().type == AND)
     {
         consume();
-        astptr rhs = parse_equality();
+        astptr rhs = parse_or_b();
         node = std::make_unique<CondNode>(std::move(node), std::move(rhs), AND);
     }
     return node;
@@ -577,6 +577,8 @@ astptr parser::parse_func_statement(const std::string &struct_)
     token id = consume(ID);
     consume(L_BRACKET);
     finsert(id.str_value, FUNC, {}, struct_ + '.');
+    if(is_module) insert(id.str_value, FUNC, nothing{}, false,1, false, false, false, false, filename, false, false, struct_);
+    else insert(id.str_value, FUNC, nothing{}, false, 1, false, false, false, false, "", false, false, struct_);
     std::vector<astptr> args_;
     table.emplace_back();
     while (peek().type != R_BRACKET)
@@ -640,6 +642,7 @@ astptr parser::parse_func_statement(const std::string &struct_)
     consume(R_BRACKET);
     token return_type = consume();
     const bool is_ptr = peek().type == STAR;
+    if(is_ptr) consume(STAR);
     bool is_array = false;
     u64 size = 1;
     if (peek().type == L_SQ_BRACKET)
@@ -656,7 +659,8 @@ astptr parser::parse_func_statement(const std::string &struct_)
         ParserError("\tUnknown return type in " + id.str_value +
                     ", expected i8..64, u8..64, bool, string, void, f32, f64, auto\n", return_type);
     }
-    astptr block = parse_block(return_type.type);
+    fsearch(id.str_value)->type = return_type.type;
+    astptr block = parse_block(return_type.type, is_ptr);
     if (!returning && return_type.type != VOID_TYPE)
     {
         ParserError("\tFunction " + id.str_value + " doesnt have returning\n", id);
@@ -664,8 +668,6 @@ astptr parser::parse_func_statement(const std::string &struct_)
     table.pop_back();
     returning = false;
     fsearch(id.str_value)->type=return_type.type;
-    if(is_module) insert(id.str_value, FUNC, nothing{}, false,1, false, false, false, false, filename, false, false, struct_);
-    else insert(id.str_value, FUNC, nothing{}, false, 1, false, false, false, false, "", false, false, struct_);
     return std::make_unique<FuncNode>(get_name(id.str_value, struct_), return_type, std::move(args_), std::move(block), is_array, size);
 }
 
@@ -717,6 +719,7 @@ astptr parser::parse_while_statement()
 
 astptr parser::parse_for_statement()
 {
+    table.emplace_back();
     consume(FOR);
     consume(L_BRACKET);
     astptr var = parse_assignment();
@@ -725,6 +728,7 @@ astptr parser::parse_for_statement()
     astptr thing = parse_assignment();
     consume(R_BRACKET);
     astptr block = parse_block();
+    table.pop_back();
     return std::make_unique<ForNode>(std::move(cond), std::move(block), std::move(var), std::move(thing));
 }
 
@@ -1039,7 +1043,7 @@ astptr parser::parse_assignment(bool is_const, bool comptime, const std::string 
             token t = consume();
             if(t.type==ID) {
                 symbol* s = searchptr(t.str_value);
-                if(!s && !s->is_ptr) continue;
+                if(!s || !s->is_ptr) continue;
                 if(s->is_moved) {
                     ParserError("\t'"+t.str_value+"' is already moved\n", t);
                 }
@@ -1466,10 +1470,10 @@ astptr parser::parse_vector(bool is_const, const std::string &struct_)
     consume(EQ);
     if (peek().type == ID)
     {
+        symbol var = search(peek().str_value);
         astptr value = parse_factor();
         consume(SEMI);
         std::vector<astptr> values;
-        symbol var = search(peek().str_value);
         u64 size = var.type != FUNC ? var.size : 0;
         values.emplace_back(std::move(value));
         if(is_module) insert(struct_ + id.str_value, type.type, nothing{}, is_const, size, true, false, true, false, filename);
