@@ -15,6 +15,19 @@ int main(int argc, char* argv[]) {
     bool build = false;
     bool verbose = false;
     bool cpp_mode = true;
+    std::string build_mode = "dev";
+    if(argc<2) {
+        std::cerr << "Run 'shiver help' for detailed information\n";
+        return 1;
+    }
+    if(strcmp(argv[1], "help")==0) {
+        std::cerr << "Shiver [OPTIONS]\n"
+        << "init (skip) - initialize build.toml\n"
+        << "build (dev|debug|release|fast) - build project\n"
+        << "version - prints version\n"
+        << "verbose - sets verbose mode\n";
+        return 0;
+    }
     for(int i=1;i<argc;i++) {
         if(strcmp(argv[i], "init")==0) {
             init = true;
@@ -22,10 +35,16 @@ int main(int argc, char* argv[]) {
             skip_init = true;
         } else if(strcmp(argv[i], "build")==0) {
             build = true;
+            if(i+1<argc) {
+                if(strcmp(argv[i+1], "release")==0) build_mode = "release"; // -O2
+                else if(strcmp(argv[i+1], "debug")==0) build_mode = "debug"; // -O0
+                else if(strcmp(argv[i+1], "dev")==0) build_mode = "dev"; // -O1
+                else if(strcmp(argv[i+1], "fast")==0) build_mode = "dev"; // -O3 + -flto
+            }
         } else if(strcmp(argv[i], "verbose")==0) {
             verbose = true;
         } else if(strcmp(argv[i], "version")==0) {
-            std::cout << "Shiver 1.1.1 by Naharashu\n"
+            std::cout << "Shiver 1.2 by Naharashu\n"
             << "MIT License\n"
             << "Made with love\n";
         } else if(strcmp(argv[i], "-c")==0) {
@@ -161,7 +180,21 @@ int main(int argc, char* argv[]) {
             if(error) break;
             final += "./build/" + x + ".o";
             std::ostringstream cmd;
-            cmd << cxx << " -c " << cxxflags << " ./build/" << x << ".cpp -o ./build/" << x << ".o";
+            std::string final_cxxflags = "";
+            if(build_mode=="debug") {
+                final_cxxflags += "-O0 -g3 -Wall -Wextra -D_GLIBCXX_DEBUG ";
+            }
+            if(build_mode=="release") {
+                final_cxxflags += "-O2 ";
+            }
+            if(build_mode=="dev") {
+                final_cxxflags += "-O1 -g1 ";
+            }
+            if(build_mode=="fast") {
+                final_cxxflags += "-O3 -g0 -flto ";
+            }
+            final_cxxflags += cxxflags;
+            cmd << cxx << " -c " << final_cxxflags << " ./build/" << x << ".cpp -o ./build/" << x << ".o";
             std::cout << "Compiling " << termcolor::bright_yellow << x << termcolor::reset
             << " into object file...\n";
             if(verbose) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd.str() << '\n';
