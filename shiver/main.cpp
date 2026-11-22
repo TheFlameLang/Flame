@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
                 if(y.path().extension() == ".flame") {
                     const std::string n = y.path().stem();
                     const std::string name = y.path().filename();
-                    std::string cmd_ = "flame " + flameflags + ' '; cmd_ += x + '/' + name; cmd_ += " -o ./build/" + n + "_flame.cpp";
+                    std::string cmd_ = "flame " + flameflags + ' '; cmd_ += x + '/' + name; cmd_ += " -t -o ./build/" + n;
                     std::cout << "Compiling " << termcolor::bright_yellow << x << '/' <<  name << termcolor::reset
                     << " into C++...\n";
                     if(verbose) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd_ << '\n';
@@ -198,21 +198,26 @@ int main(int argc, char* argv[]) {
             std::cout << "Compiling " << termcolor::bright_yellow << x << termcolor::reset
             << " into object file...\n";
             if(verbose) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd.str() << '\n';
-            std::system(cmd.str().c_str());
+            if(std::system(cmd.str().c_str()) != 0) {
+                error = true;
+            }
         }
         std::ostringstream cmd;
         cmd << cxx << ' ' << final << " -o " << output;
-        if(verbose&&!error) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd.str() << '\n';
-        if(!error) std::cout << "Linking files together...";
-        else {
+        if(error) {
             std::cout << "Build is unsuccessful...\n";
             return 1;
         }
-        std::system(cmd.str().c_str());
+        if(verbose) std::cout << termcolor::blue << "[VERBOSE]: " << termcolor::reset << cmd.str() << '\n';
+        std::cout << "Linking files together...";
+        if(std::system(cmd.str().c_str()) != 0) {
+            std::cout << "\nBuild is unsuccessful...\n";
+            return 1;
+        }
         // very long but its just (end-start)->to millisec-> to double
         double time_end = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count());
         std::cout << termcolor::green << "Done\n" << termcolor::reset;
-        std::cout << "Buid successful (" << time_end/1000 << "s)\n";
+        std::cout << "Build successful (" << time_end/1000 << "s)\n";
     }
     return 0;
 }
