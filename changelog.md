@@ -3,6 +3,11 @@
 
 - C11 codegen (by Claude)
 
+### Shiver 1.2(22.11.2026):
+
+- bugfixes 
+- added build types (debug, dev, release, fast)
+
 ### Flame 0.10.0(21.07.26):
 
 * mutable and not mutable references(**function arguments only**)
