@@ -1,0 +1,3 @@
+[submodule "include/third-party/ir"]
+	path = include/third-party/ir
+	url = https://github.com/dstogov/ir.git
