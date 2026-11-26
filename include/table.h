@@ -4,31 +4,9 @@
 #include <string>
 #include "common.h"
 #include "lexer.h"
+#include "ast.h"
 
-using symbol = struct symbol {
-    token_type type=EOF_;
-    token_value value;
-    bool is_const=false;
-    u64 size=0;
-    bool is_array=false;
-    bool comptime=false;
-    std::string name="";
-    bool is_vector=false;
-    bool is_ptr=false;
-    std::string module_name = "";
-    bool is_moved=false;
-    bool is_mut_now=true;
-    bool is_ref_arg=false;
-    std::string struct_ = "";
-};
-
-using fsymbol = struct fsymbol {
-    token_type type=EOF_;
-    std::vector<symbol> args;
-    bool comptime=false;
-    std::string struct_="";
-    std::string module_name = "";
-};
+/* symbol and fsymbol are AST metadata types declared in ast.h. */
 
 extern std::vector<std::string> struct_list;
 extern std::vector<std::string> freed_list;

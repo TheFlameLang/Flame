@@ -39,9 +39,36 @@ using ast_type = enum class ast_type : uint8_t {
 
 using astptr = std::unique_ptr<ASTNode>;
 
+using symbol = struct symbol {
+  token_type type = EOF_;
+  token_value value;
+  bool is_const = false;
+  u64 size = 0;
+  bool is_array = false;
+  bool comptime = false;
+  std::string name = "";
+  bool is_vector = false;
+  bool is_ptr = false;
+  std::string module_name = "";
+  bool is_moved = false;
+  bool is_mut_now = true;
+  bool is_ref_arg = false;
+  std::string struct_ = "";
+};
+
+using fsymbol = struct fsymbol {
+  token_type type = EOF_;
+  std::vector<symbol> args;
+  bool comptime = false;
+  std::string struct_ = "";
+  std::string module_name = "";
+};
+
 class ASTNode {
 public:
   ast_type kind;
+  symbol metadata;
+  fsymbol function_metadata;
   virtual ~ASTNode() = default;
   u64 line=0;
   u64 column=0;
@@ -62,7 +89,17 @@ public:
   bool isptr;
   bool is_ref_arg;
   std::string struct_;
-  explicit Node(const token& t, bool is_ptr=false, bool _is_ref_arg=false, const std::string& s="") : tok(t), isptr(is_ptr), is_ref_arg(_is_ref_arg), struct_(s) { kind = ast_type::JUSTNODE; line=tok.line; column=tok.column;};
+  explicit Node(const token& t, bool is_ptr=false, bool _is_ref_arg=false, const std::string& s="")
+      : tok(t), isptr(is_ptr), is_ref_arg(_is_ref_arg), struct_(s) {
+    kind = ast_type::JUSTNODE;
+    line = tok.line;
+    column = tok.column;
+    metadata.type = tok.type;
+    metadata.name = tok.str_value;
+    metadata.is_ptr = is_ptr;
+    metadata.is_ref_arg = _is_ref_arg;
+    metadata.struct_ = s;
+  };
   std::string gen(generator &g) override;
   std::string gen_c(generator &g) override;
 };
@@ -85,8 +122,16 @@ public:
   bool ref=false;
   bool isconst=false;
   bool ismut = false;
-  ArgumentNode(const token& t, const std::string& id_, bool isarr, u64 s, bool f=false, bool ic=false, bool ism=false) : type(t), id(id_), is_array(isarr), size_if_array(s), ref(f), isconst(ic), ismut(ism) {
+  ArgumentNode(const token& t, const std::string& id_, bool isarr, u64 s, bool f=false, bool ic=false, bool ism=false)
+      : type(t), id(id_), is_array(isarr), size_if_array(s), ref(f), isconst(ic), ismut(ism) {
     kind = ast_type::FUNC_ARG;
+    metadata.type = t.type;
+    metadata.name = id_;
+    metadata.size = s;
+    metadata.is_array = isarr;
+    metadata.is_const = ic;
+    metadata.is_ptr = ism;
+    metadata.is_ref_arg = f;
   };
   void print() const override {}
   std::string gen(generator &g) override;
@@ -152,6 +197,11 @@ public:
   AssignmentNode(const std::string &id_, astptr val_, bool isconst=false, bool isptr_=false, bool ismov=false, const std::string& s="")
       : id(id_), val(std::move(val_)), is_const(isconst), isptr(isptr_), ismoving(ismov), struct_(s) {
     kind = ast_type::ASSIGN;
+    metadata.name = id_;
+    metadata.is_const = isconst;
+    metadata.is_ptr = isptr_;
+    metadata.is_moved = ismov;
+    metadata.struct_ = s;
   };
 
   std::string gen(generator &g) override;
@@ -170,6 +220,12 @@ public:
   AssignmentNodeExpr(const token_type &t_, const std::string &id_, astptr val_, bool isconst=false, const std::string &s="", bool isptr=false, bool ismov=false)
       : type_(t_), id(id_), val(std::move(val_)), is_const(isconst), struct_id(s), is_ptr(isptr), is_mov(ismov) {
     kind = ast_type::DEFINEVAR;
+    metadata.type = t_;
+    metadata.name = id_;
+    metadata.is_const = isconst;
+    metadata.is_ptr = isptr;
+    metadata.is_moved = ismov;
+    metadata.struct_ = s;
   };
 
   std::string gen(generator &g) override;
@@ -187,6 +243,11 @@ public:
   ReAssignmentNodeExpr(const token_type &t_, const std::string &id_, astptr val_, bool isconst=false, const std::string& s="", bool isptr_=false)
       : type_(t_), id(id_), val(std::move(val_)), is_const(isconst), struct_(s), isptr(isptr_) {
     kind = ast_type::REASSIGNVAR;
+    metadata.type = t_;
+    metadata.name = id_;
+    metadata.is_const = isconst;
+    metadata.is_ptr = isptr_;
+    metadata.struct_ = s;
   };
 
   std::string gen(generator &g) override;
@@ -247,6 +308,15 @@ public:
            astptr block_,const bool &irta, const u64 &s)
       : id(id_), type(type_), args(std::move(args_)), block(std::move(block_)), is_return_type_array(irta), size(s) {
     kind = ast_type::FUNC;
+    metadata.name = id_;
+    metadata.type = type_.type;
+    metadata.is_array = irta;
+    metadata.size = s;
+    function_metadata.type = type_.type;
+    function_metadata.struct_ = "";
+    for (const astptr &arg : args) {
+      if (arg) function_metadata.args.push_back(arg->metadata);
+    }
   };
 
   void print() const override {}
@@ -331,6 +401,11 @@ public:
   ArrayNode(const token &t, std::vector<astptr> v, const std::string &i,unsigned long long s, bool ii=false, const bool &vec=false)
       : type(t), values(std::move(v)), id(i), size(s), is_init(ii), is_vector(vec) {
     kind = ast_type::ARRAY;
+    metadata.type = t.type;
+    metadata.name = i;
+    metadata.size = s;
+    metadata.is_array = !vec;
+    metadata.is_vector = vec;
   }
   std::string gen(generator &g) override;
   std::string gen_c(generator &g) override;

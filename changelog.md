@@ -2,6 +2,7 @@
 ### Flame 0.11.0:
 
 - C11 codegen (by Claude)
+- New parser (WIP)
 
 ### Shiver 1.2(22.11.2026):
 

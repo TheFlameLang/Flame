@@ -9,6 +9,8 @@ typedef long long i64;
 typedef double f64;
 typedef unsigned char u8;
 
+
+
 inline std::string variant2string(const token_value &val) {
   if (const std::string *s = std::get_if<std::string>(&val)) {
     return *s;

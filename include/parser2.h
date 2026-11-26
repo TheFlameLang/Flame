@@ -160,6 +160,12 @@ class parser {
         return src.at(indx+i);
     }
 
+    void err(std::string text, std::string ErrType, token& t) {
+        std::cerr << "\x1b[0;33m" << filename << ":" << std::to_string(t.line) << ":" + std::to_string(t.column)
+                          << ":  error(" << ErrType << ")\n" << text << '\n' << "\x1b[0m\n";
+        sync();
+    }
+
     /**
      * @brief Skip to the nearest ; or } or newline
      */
